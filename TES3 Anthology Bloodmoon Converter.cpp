@@ -17,7 +17,7 @@
 // Define an alias for ordered JSON type from the nlohmann library
 using ordered_json = nlohmann::ordered_json;
 
-// Program metadata: constants holding the program's name, version, and author.
+// Program metadata: constants holding the program's name, version, and author
 const std::string PROGRAM_NAME = "TES3 Anthology Bloodmoon Converter";
 const std::string PROGRAM_VERSION = "V 1.0.0";
 const std::string PROGRAM_AUTHOR = "by SiberianCrab";
@@ -33,11 +33,11 @@ GridOffset getGridOffset(int conversionChoice) {
     return (conversionChoice == 1) ? GridOffset{ 7, 6 } : GridOffset{ -7, -6 };
 }
 
-// Function to log messages to both a log file and console.
+// Function to log messages to both a log file and console
 void logMessage(const std::string& message, const std::filesystem::path& logFilePath = "tes3_ab_log.txt") {
     std::ofstream logFile(logFilePath, std::ios_base::app);
 
-    // Check if the file opened successfully and write the message.
+    // Check if the file opened successfully and write the message
     if (logFile.is_open()) {
         logFile << message << std::endl;
     }
@@ -48,33 +48,33 @@ void logMessage(const std::string& message, const std::filesystem::path& logFile
     std::cout << message << std::endl;
 }
 
-// Function to log errors, close the database (if open), and terminate the program.
+// Function to log errors, close the database (if open), and terminate the program
 void logErrorAndExit(sqlite3* db, const std::string& message) {
     logMessage(message);
 
-    // Close the SQLite database if it is open to avoid memory leaks.
+    // Close the SQLite database if it is open to avoid memory leaks
     if (db) {
         sqlite3_close(db);
     }
 
-    // Prompt the user to press Enter to continue and clear any input buffer.
+    // Prompt the user to press Enter to continue and clear any input buffer
     std::cout << "Press Enter to continue...";
     std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
-    // Throw a runtime error to exit the program and propagate the error.
+    // Throw a runtime error to exit the program and propagate the error
     throw std::runtime_error(message);
 }
 
-// Function to clear the log file if it exists, and log the status.
+// Function to clear the log file if it exists, and log the status
 void clearLogFile(const std::filesystem::path& logFileName = "tes3_ab_log.txt") {
-    // Check if the log file exists before trying to remove it.
+    // Check if the log file exists before trying to remove it
     if (std::filesystem::exists(logFileName)) {
         try {
             std::filesystem::remove(logFileName);
             logMessage("Log cleared successfully...", logFileName);
         }
         catch (const std::filesystem::filesystem_error& e) {
-            // Log any error that occurs during the file removal process.
+            // Log any error that occurs during the file removal process
             logMessage("Error clearing log file: " + std::string(e.what()), logFileName);
         }
     }
@@ -82,7 +82,7 @@ void clearLogFile(const std::filesystem::path& logFileName = "tes3_ab_log.txt") 
 
 // Function to check the order of dependencies in a file's data
 std::pair<bool, std::unordered_set<int>> checkDependencyOrder(const ordered_json& inputData) {
-    // Look for the "Header" section in the JSON
+    // Look for the "Header" section in the JSON.
     auto headerIter = std::find_if(inputData.begin(), inputData.end(), [](const ordered_json& item) {
         return item.contains("type") && item["type"] == "Header";
         });
