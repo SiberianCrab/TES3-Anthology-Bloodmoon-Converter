@@ -80,6 +80,47 @@ void clearLogFile(const std::filesystem::path& logFileName = "tes3_ab_log.txt") 
     }
 }
 
+// Function to get user input for conversion choice
+int getUserConversionChoice() {
+    int ConversionChoice;
+    while (true) {
+        std::cout << "Convert a plugin or master file:\n"
+            "1. From Bloodmoon to Anthology Bloodmoon\n2. From Anthology Bloodmoon to Bloodmoon\nChoice: ";
+        std::string input;
+        std::getline(std::cin, input);
+        if (input == "1" || input == "2") {
+            ConversionChoice = input[0] - '0'; // Convert char to int
+            break;
+        }
+        logMessage("Invalid choice. Enter 1 or 2.");
+    }
+    return ConversionChoice;
+}
+
+// Function to get the path of the input file from the user
+std::filesystem::path getInputFilePath() {
+    std::filesystem::path filePath;
+    while (true) {
+        std::cout << "Enter full path to your .ESP or .ESM (including extension), or filename (with extension)\n"
+            "if it's in the same directory with this program: ";
+        std::string input;
+        std::getline(std::cin, input);
+        filePath = input;
+
+        // Convert the file extension to lowercase for case-insensitive comparison
+        std::string extension = filePath.extension().string();
+        std::transform(extension.begin(), extension.end(), extension.begin(), ::tolower);
+
+        if (std::filesystem::exists(filePath) &&
+            (extension == ".esp" || extension == ".esm")) {
+            logMessage("Input file found: " + filePath.string());
+            break;
+        }
+        logMessage("Input file not found or incorrect extension.");
+    }
+    return filePath;
+}
+
 // Function to check the order of dependencies in a file's data
 std::pair<bool, std::unordered_set<int>> checkDependencyOrder(const ordered_json& inputData) {
     // Look for the "Header" section in the JSON.
@@ -134,42 +175,6 @@ std::pair<bool, std::unordered_set<int>> checkDependencyOrder(const ordered_json
     return { false, {} };
 }
 
-// Function to get user input for conversion choice
-int getUserConversionChoice() {
-    int ConversionChoice;
-    while (true) {
-        std::cout << "Convert a plugin or master file:\n"
-            "1. From Bloodmoon to Anthology Bloodmoon\n2. From Anthology Bloodmoon to Bloodmoon\nChoice: ";
-        std::string input;
-        std::getline(std::cin, input);
-        if (input == "1" || input == "2") {
-            ConversionChoice = input[0] - '0'; // Convert char to int
-            break;
-        }
-        logMessage("Invalid choice. Enter 1 or 2.");
-    }
-    return ConversionChoice;
-}
-
-// Function to get the path of the input file from the user
-std::filesystem::path getInputFilePath() {
-    std::filesystem::path filePath;
-    while (true) {
-        std::cout << "Enter full path to your .ESP or .ESM (including extension), or filename (with extension)\n"
-            "if it's in the same directory with this program: ";
-        std::string input;
-        std::getline(std::cin, input);
-        filePath = input;
-        if (std::filesystem::exists(filePath) &&
-            (filePath.extension() == ".esp" || filePath.extension() == ".esm")) {
-            logMessage("Input file found: " + filePath.string());
-            break;
-        }
-        logMessage("Input file not found or incorrect extension.");
-    }
-    return filePath;
-}
-
 // Custom hash function for std::pair<int, int>
 struct PairHash {
     template <typename T1, typename T2>
@@ -192,7 +197,7 @@ void loadCustomGridCoordinates(const std::string& filePath, std::unordered_set<s
 
     std::string line;
     while (std::getline(file, line)) {
-        // Trim leading and trailing whitespace (if necessary)
+        // Trim leading and trailing whitespace
         line.erase(0, line.find_first_not_of(" \t\r\n"));
         line.erase(line.find_last_not_of(" \t\r\n") + 1);
 
@@ -2168,9 +2173,9 @@ int main() {
     }
 
     // Delete both JSON files if conversion succeeds
-    if (std::filesystem::exists(jsonFilePath)) std::filesystem::remove(jsonFilePath);
-    if (std::filesystem::exists(newJsonFilePath)) std::filesystem::remove(newJsonFilePath);
-    logMessage("Temporary JSON files deleted: " + jsonFilePath.string() + "\n                         and: " + newJsonFilePath.string() + "\n");
+    //if (std::filesystem::exists(jsonFilePath)) std::filesystem::remove(jsonFilePath);
+    //if (std::filesystem::exists(newJsonFilePath)) std::filesystem::remove(newJsonFilePath);
+    //logMessage("Temporary JSON files deleted: " + jsonFilePath.string() + "\n                         and: " + newJsonFilePath.string() + "\n");
 
     // Close the database and finish execution
     sqlite3_close(db);
