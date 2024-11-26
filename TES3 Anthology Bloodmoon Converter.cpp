@@ -17,7 +17,7 @@
 // Define an alias for ordered JSON type from the nlohmann library
 using ordered_json = nlohmann::ordered_json;
 
-// Program metadata: constants holding the program's name, version, and author
+// Define program metadata constants
 const std::string PROGRAM_NAME = "TES3 Anthology Bloodmoon Converter";
 const std::string PROGRAM_VERSION = "V 1.0.0";
 const std::string PROGRAM_AUTHOR = "by SiberianCrab";
@@ -2023,7 +2023,6 @@ bool saveJsonToFile(const std::filesystem::path& jsonFilePath, const ordered_jso
 bool convertJsonToEsp(const std::filesystem::path& jsonFilePath, const std::filesystem::path& espFilePath) {
     std::string command = "tes3conv.exe \"" + jsonFilePath.string() + "\" \"" + espFilePath.string() + "\"";
     if (std::system(command.c_str()) != 0) {
-        logMessage("Error: Failed to convert JSON to ESM/ESP. Check tes3conv.exe and JSON file format.\n");
         return false;
     }
     logMessage("Final conversion to ESM/ESP successful: " + espFilePath.string() + "\n");
@@ -2032,20 +2031,21 @@ bool convertJsonToEsp(const std::filesystem::path& jsonFilePath, const std::file
 
 // Main function
 int main() {
-    // Program information
+    // Display program information
     std::cout << PROGRAM_NAME << "\n" << PROGRAM_VERSION << "\n" << PROGRAM_AUTHOR << "\n\n";
 
-    // Clear old logs
+    // Clear previous log entries
     clearLogFile("tes3_ab_log.txt");
 
-    // Check if the database file exists
+    // Check if database file exists
     std::filesystem::path dbFilePath = "tes3_ab_cell_x-y_data.db";
     if (!std::filesystem::exists(dbFilePath)) {
         logErrorAndExit(nullptr, "Database file 'tes3_ab_cell_x-y_data.db' not found.\n");
     }
 
     sqlite3* db = nullptr;
-    // If the database file exists, attempt to load it
+
+    // Attempt to open database
     if (sqlite3_open(dbFilePath.string().c_str(), &db)) {
         logErrorAndExit(db, "Failed to open database: " + std::string(sqlite3_errmsg(db)) + "\n");
     }
@@ -2057,7 +2057,7 @@ int main() {
         logErrorAndExit(nullptr, "Custom grid coordinates file 'tes3_ab_custom_cell_x-y_data.txt' not found.\n");
     }
 
-    // If the custom grid coordinates file exists, attempt to load it
+    // Attempt to load the custom grid coordinates
     std::unordered_set<std::pair<int, int>, PairHash> customCoordinates;
     loadCustomGridCoordinates(customFilePath.string(), customCoordinates);
     logMessage("Custom grid coordinates loaded successfully...");
@@ -2070,14 +2070,14 @@ int main() {
     }
     logMessage("tes3conv.exe found...\nInitialisation complete.\n");
 
-    // Get the conversion direction choice from the user
+    // Get conversion choice from user
     int ConversionChoice = getUserConversionChoice();
 
-    // Get the input file path from the user
+    // Get input file path from user
     std::filesystem::path inputFilePath = getInputFilePath();
     std::filesystem::path inputPath(inputFilePath);
 
-    // Define the output paths
+    // Define output paths
     std::filesystem::path outputDir = inputPath.parent_path();
     std::filesystem::path jsonFilePath = outputDir / (inputPath.stem() += ".json");
 
@@ -2093,22 +2093,20 @@ int main() {
     if (!inputFile) {
         logErrorAndExit(db, "Failed to open JSON file for reading: " + jsonFilePath.string() + "\n");
     }
-
-    // Use ordered_json to preserve the order of keys
     ordered_json inputData;
     inputFile >> inputData;
     inputFile.close();
 
     // Check if the required dependencies are ordered correctly in the input data
-    //auto [isValid, validMastersDB] = checkDependencyOrder(inputData);
-    //if (!isValid) {
-    //    // Remove the temporary JSON file if it exists
-    //    if (std::filesystem::exists(jsonFilePath)) {
-    //        std::filesystem::remove(jsonFilePath);
-    //        logMessage("Temporary JSON file deleted: " + jsonFilePath.string() + "\n");
-    //    }
-    //    logErrorAndExit(db, "Required Parent Masters not found or are in the wrong order.\n");
-    //}
+    auto [isValid, validMastersDB] = checkDependencyOrder(inputData);
+    if (!isValid) {
+        // Remove the temporary JSON file if it exists
+        if (std::filesystem::exists(jsonFilePath)) {
+            std::filesystem::remove(jsonFilePath);
+            logMessage("Temporary JSON file deleted: " + jsonFilePath.string() + "\n");
+        }
+        logErrorAndExit(db, "Required Parent Masters not found or are in the wrong order.\n");
+    }
 
     // Retrieve the grid offset based on the conversion choice
     GridOffset offset = getGridOffset(ConversionChoice);
@@ -2173,9 +2171,9 @@ int main() {
     }
 
     // Delete both JSON files if conversion succeeds
-    //if (std::filesystem::exists(jsonFilePath)) std::filesystem::remove(jsonFilePath);
-    //if (std::filesystem::exists(newJsonFilePath)) std::filesystem::remove(newJsonFilePath);
-    //logMessage("Temporary JSON files deleted: " + jsonFilePath.string() + "\n                         and: " + newJsonFilePath.string() + "\n");
+    if (std::filesystem::exists(jsonFilePath)) std::filesystem::remove(jsonFilePath);
+    if (std::filesystem::exists(newJsonFilePath)) std::filesystem::remove(newJsonFilePath);
+    logMessage("Temporary JSON files deleted: " + jsonFilePath.string() + "\n                         and: " + newJsonFilePath.string() + "\n");
 
     // Close the database and finish execution
     sqlite3_close(db);
