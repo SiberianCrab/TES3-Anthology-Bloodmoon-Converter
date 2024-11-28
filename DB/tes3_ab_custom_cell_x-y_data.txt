@@ -1,3 +1,3 @@
-// Specify the X, Y grid coordinates of cells to include for conversion, 
-// even if they are not part of the vanilla Bloodmoon cells list.
+// Specify the X, Y grid coordinates of Cells to include for conversion, 
+// even if they are not part of the Bloodmoon vanilla Сells list.
 // Each line should contain one coordinate pair in the format: X,Y

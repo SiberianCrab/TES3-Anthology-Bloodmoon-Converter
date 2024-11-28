@@ -1,18 +1,15 @@
-#include <iostream>               // For standard input and output operations
-#include <fstream>                // For file input and output operations
-#include <sstream>                // For working with string streams
-#include <string>                 // For string manipulation and handling
-#include <iomanip>                // For manipulating the output format (e.g., precision)
-#include <limits>                 // For setting input limits and working with numeric limits
-#include <regex>                  // For regular expressions (pattern matching)
-#include <unordered_map>          // For efficient key-value pair storage (hash map)
-#include <unordered_set>          // For efficient storage of unique elements (hash set)
-#include <functional>             // For using std::hash in custom hash functions
-#include <utility>                // For utility functions and data structures like std::pair
-#include <vector>                 // For dynamic arrays or lists
-#include <filesystem>             // For interacting with the file system (directories, files)
-#include <sqlite3.h>              // For interacting with SQLite databases
-#include <json.hpp>               // For working with JSON data (nlohmann's JSON library)
+#include <utility>
+#include <iomanip>
+#include <regex>
+#include <filesystem>
+#include <fstream>
+#include <iostream>
+#include <limits>
+#include <string>
+#include <unordered_set>
+#include <vector>
+#include <sqlite3.h>
+#include <json.hpp>
 
 // Define an alias for ordered JSON type from the nlohmann library
 using ordered_json = nlohmann::ordered_json;
@@ -89,7 +86,7 @@ int getUserConversionChoice() {
         std::string input;
         std::getline(std::cin, input);
         if (input == "1" || input == "2") {
-            ConversionChoice = input[0] - '0'; // Convert char to int
+            ConversionChoice = std::stoi(input);
             break;
         }
         logMessage("Invalid choice. Enter 1 or 2.");
