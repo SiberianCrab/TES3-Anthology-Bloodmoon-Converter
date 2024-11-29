@@ -2153,7 +2153,7 @@ int main() {
     logUpdatedScriptIDs(updatedScriptIDs);
 
     // Save the modified JSON data to a new file using the saveJsonToFile function
-    std::filesystem::path newJsonFilePath = outputDir / ("CONV_" + std::string(ConversionChoice == 1 ? "BMtoAS" : "AStoBM") + "_" + inputPath.stem().string() + ".json");
+    std::filesystem::path newJsonFilePath = outputDir / ("CONV_" + std::string(ConversionChoice == 1 ? "BMtoAB" : "ABtoBM") + "_" + inputPath.stem().string() + ".json");
 
     if (!saveJsonToFile(newJsonFilePath, inputData)) {
         logErrorAndExit(db, "Error saving modified JSON file.\n");
@@ -2161,7 +2161,7 @@ int main() {
 
     // Convert the JSON back to ESP/ESM format
     std::filesystem::path outputExtension = inputPath.extension();
-    std::filesystem::path newEspPath = outputDir / ("CONV_" + std::string(ConversionChoice == 1 ? "BMtoAS" : "AStoBM") + "_" + inputPath.stem().string() + outputExtension.string());
+    std::filesystem::path newEspPath = outputDir / ("CONV_" + std::string(ConversionChoice == 1 ? "BMtoAB" : "ABtoBM") + "_" + inputPath.stem().string() + outputExtension.string());
 
     if (!convertJsonToEsp(newJsonFilePath, newEspPath)) {
         logErrorAndExit(db, "Error converting JSON back to ESM/ESP.\n");
