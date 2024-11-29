@@ -10,9 +10,9 @@
  - Identifies and adjusts grid coordinates for Cell, Landscape, and PathGrid records.
 
  II. Processing translation Coordinates:
- - Adjusts translation coordinates for objects located within relocatable Cell zones.
- - Updates coordinates for doors leading out of interior zones.
- - Modifies coordinates for transportation teleportation points.
+ - Adjusts translation coordinates for objects located within relocatable Cells.
+ - Updates coordinates for doors leading out of Interior cells.
+ - Modifies coordinates for transportation teleportations.
  
  III. Updating Coordinates in Game Scripts:
  - Supports coordinate updates in script commands: AiEscort, AiFollow, AiTravel, PlaceItem, Position.
