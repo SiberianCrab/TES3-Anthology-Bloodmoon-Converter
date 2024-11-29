@@ -8,7 +8,7 @@
  
  I. Processing grid Coordinates:
  - Identifies and adjusts grid coordinates for entities such as Cell, Landscape, and PathGrid.
- - Supports accurate handling of coordinates for custom Cell types.
+ - Supports accurate handling of coordinates for custom Cells.
 
  II. Processing translation Coordinates:
  - Adjusts translation coordinates for objects located within relocatable Cell zones.
