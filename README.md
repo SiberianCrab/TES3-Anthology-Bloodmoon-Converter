@@ -7,18 +7,17 @@
  Program Capabilities:
  
  I. Processing grid Coordinates:
- - Identifies and adjusts grid coordinates for Cell, Landscape, and PathGrid records.
+ - Updates grid coordinates for Cell, Landscape, and PathGrid records.
 
  II. Processing translation Coordinates:
- - Adjusts translation coordinates for objects located within relocatable Cells.
+ - Updates translation coordinates for objects located within relocatable Cells.
  - Updates coordinates for doors leading out of Interior cells.
- - Modifies coordinates for transportation teleportations.
+ - Updates coordinates for transportation teleportations.
  
- III. Updating Coordinates in Game Scripts:
- - Supports coordinate updates in script commands: AiEscort, AiFollow, AiTravel, PlaceItem, Position.
- - Handles commands specifying target Cell: AiEscortCell, AiFollowCell, AiTravelCell, PlaceItemCell, PositionCell.
+ III. Processing Coordinates in Game Scripts:
+ - Updates coordinates in script commands: AiEscort, AiFollow, AiTravel, PlaceItem, Position, AiEscortCell, AiFollowCell, AiTravelCell, PlaceItemCell, PositionCell.
  
- IV. Updating Coordinates in Dialogue-Linked Scripts (Dialogue window Result section):
- - Supports the same set of commands as standard scripts: AiEscort, AiFollow, AiTravel, PlaceItem, Position, AiEscortCell, AiFollowCell, AiTravelCell, PlaceItemCell, PositionCell.
+ IV. Processing Coordinates in Dialogue-Linked Scripts (Dialogue window Result section):
+ - Updates the same set of commands as standard scripts: AiEscort, AiFollow, AiTravel, PlaceItem, Position, AiEscortCell, AiFollowCell, AiTravelCell, PlaceItemCell, PositionCell.
 
- V. Supports coordinate processing for a user-defined custom Cell list.
+ V. Supports coordinate updates for a user-defined custom Cell list.
