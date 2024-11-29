@@ -7,8 +7,7 @@
  Program Capabilities:
  
  I. Processing grid Coordinates:
- - Identifies and adjusts grid coordinates for entities such as Cell, Landscape, and PathGrid.
- - Supports accurate handling of coordinates for custom Cells.
+ - Identifies and adjusts grid coordinates for Cell, Landscape, and PathGrid records.
 
  II. Processing translation Coordinates:
  - Adjusts translation coordinates for objects located within relocatable Cell zones.
@@ -21,3 +20,5 @@
  
  IV. Updating Coordinates in Dialogue-Linked Scripts (Dialogue window Result section):
  - Supports the same set of commands as standard scripts: AiEscort, AiFollow, AiTravel, PlaceItem, Position, AiEscortCell, AiFollowCell, AiTravelCell, PlaceItemCell, PositionCell.
+
+ V. Supports coordinate processing for a user-defined custom Cell list.
