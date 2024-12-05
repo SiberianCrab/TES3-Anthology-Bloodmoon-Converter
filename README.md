@@ -12,7 +12,7 @@
  II. Processing translation coordinates:
  - Updates coordinates for objects located within relocatable Cells.
  - Updates coordinates for Interior cell doors, leading to relocatable Cells.
- - Updates coordinates for Travel Services, leading to relocatable Cells.
+ - Updates coordinates for NPC's Travel Services, leading to relocatable Cells.
  
  III. Processing translation coordinates in game Scripts:
  - Updates coordinates in script commands: AiEscort, AiFollow, AiTravel, PlaceItem, Position, AiEscortCell, AiFollowCell, AiTravelCell, PlaceItemCell, PositionCell.
