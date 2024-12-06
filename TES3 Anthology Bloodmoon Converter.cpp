@@ -2107,15 +2107,15 @@ int main() {
     inputFile.close();
 
     // Check if the required dependencies are ordered correctly in the input data
-    //auto [isValid, validMastersDB] = checkDependencyOrder(inputData);
-    //if (!isValid) {
+    auto [isValid, validMastersDB] = checkDependencyOrder(inputData);
+    if (!isValid) {
         // Remove the temporary JSON file if it exists
-    //    if (std::filesystem::exists(jsonFilePath)) {
-    //        std::filesystem::remove(jsonFilePath);
-    //        logMessage("Temporary JSON file deleted: " + jsonFilePath.string() + "\n");
-    //    }
-    //    logErrorAndExit(db, "Required Parent Masters not found or are in the wrong order.\n");
-    //}
+        if (std::filesystem::exists(jsonFilePath)) {
+            std::filesystem::remove(jsonFilePath);
+            logMessage("Temporary JSON file deleted: " + jsonFilePath.string() + "\n");
+        }
+        logErrorAndExit(db, "Required Parent Masters not found or are in the wrong order.\n");
+    }
 
     // Retrieve the grid offset based on the conversion choice
     GridOffset offset = getGridOffset(ConversionChoice);
