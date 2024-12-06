@@ -225,7 +225,14 @@ void loadCustomGridCoordinates(const std::string& filePath, std::unordered_set<s
 }
 
 // Function to check if a given grid coordinate (gridX, gridY) is valid. It checks both the database and custom user-defined coordinates
-bool isCoordinateValid(sqlite3* db, int gridX, int gridY, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates) {
+bool isCoordinateValid(sqlite3* db, int gridX, int gridY, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice) {
+    // Get the offset from the getGridOffset function
+    GridOffset offset = getGridOffset(conversionChoice);
+
+    // Apply the offset to the coordinates
+    int adjustedGridX = gridX + offset.offsetX;
+    int adjustedGridY = gridY + offset.offsetY;
+
     // Check in the database
     sqlite3_stmt* stmt;
     std::string query = "SELECT BM_Grid_X, BM_Grid_Y FROM [tes3_ab_cell_x-y_data] WHERE BM_Grid_X = ? AND BM_Grid_Y = ?";
@@ -235,8 +242,8 @@ bool isCoordinateValid(sqlite3* db, int gridX, int gridY, const std::unordered_s
         return false;
     }
 
-    sqlite3_bind_int(stmt, 1, gridX);
-    sqlite3_bind_int(stmt, 2, gridY);
+    sqlite3_bind_int(stmt, 1, adjustedGridX);
+    sqlite3_bind_int(stmt, 2, adjustedGridY);
 
     bool foundInDB = (sqlite3_step(stmt) == SQLITE_ROW);
     sqlite3_finalize(stmt);
@@ -256,7 +263,7 @@ bool isCoordinateValid(sqlite3* db, int gridX, int gridY, const std::unordered_s
 }
 
 // Function to process translations for interior door coordinates
-void processInterriorDoorsTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates) {
+void processInterriorDoorsTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice) {
 
     // Loop through all objects in inputData
     for (auto& cell : inputData) {
@@ -278,7 +285,7 @@ void processInterriorDoorsTranslation(sqlite3* db, ordered_json& inputData, cons
                             int gridY = static_cast<int>(std::floor(destY / 8192.0));
 
                             // Check if coordinate is valid (in DB or customCoordinates)
-                            if (isCoordinateValid(db, gridX, gridY, customCoordinates)) {
+                            if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice)) {
                                 int newGridX = gridX + offset.offsetX;
                                 int newGridY = gridY + offset.offsetY;
 
@@ -310,7 +317,7 @@ void processInterriorDoorsTranslation(sqlite3* db, ordered_json& inputData, cons
 }
 
 // Function to process NPC travel destinations
-void processNpcTravelDestinations(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates) {
+void processNpcTravelDestinations(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice) {
 
     // Loop through all objects in inputData
     for (auto& npc : inputData) {
@@ -326,7 +333,7 @@ void processNpcTravelDestinations(sqlite3* db, ordered_json& inputData, const Gr
                         int gridY = static_cast<int>(std::floor(destY / 8192.0));
 
                         // Check if coordinate is valid (in DB or customCoordinates)
-                        if (isCoordinateValid(db, gridX, gridY, customCoordinates)) {
+                        if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice)) {
                             int newGridX = gridX + offset.offsetX;
                             int newGridY = gridY + offset.offsetY;
 
@@ -357,7 +364,7 @@ void processNpcTravelDestinations(sqlite3* db, ordered_json& inputData, const Gr
 }
 
 // Function to process Script AI Escort translation
-void processScriptAiEscortTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, std::vector<std::string>& updatedScriptIDs, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates) {
+void processScriptAiEscortTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, std::vector<std::string>& updatedScriptIDs, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice) {
 
     // Regular expression to find AiEscort commands
     std::regex aiEscortRegex(R"((AiEscort)\s*,?\s*((?:\"[^\"]+\")|\S+)\s*,?\s*(\d+)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)(?:\s*,?\s*(\d+))?)",
@@ -390,7 +397,7 @@ void processScriptAiEscortTranslation(sqlite3* db, ordered_json& inputData, cons
                     int gridY = static_cast<int>(std::floor(y / 8192.0));
 
                     // Check if coordinate is valid (in DB or customCoordinates)
-                    if (isCoordinateValid(db, gridX, gridY, customCoordinates)) {
+                    if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice)) {
                         int newGridX = gridX + offset.offsetX;
                         int newGridY = gridY + offset.offsetY;
 
@@ -448,7 +455,7 @@ void processScriptAiEscortTranslation(sqlite3* db, ordered_json& inputData, cons
 }
 
 // Function to process Dialogue AI Escort translation
-void processDialogueAiEscortTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates) {
+void processDialogueAiEscortTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice) {
 
     // Regular expression to find AiEscort commands
     std::regex aiEscortRegex(R"((AiEscort)\s*,?\s*((?:\"[^\"]+\")|\S+)\s*,?\s*(\d+)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)(?:\s*,?\s*(\d+))?)",
@@ -479,7 +486,7 @@ void processDialogueAiEscortTranslation(sqlite3* db, ordered_json& inputData, co
                     int gridY = static_cast<int>(std::floor(y / 8192.0));
 
                     // Check if coordinate is valid (in DB or customCoordinates)
-                    if (isCoordinateValid(db, gridX, gridY, customCoordinates)) {
+                    if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice)) {
                         int newGridX = gridX + offset.offsetX;
                         int newGridY = gridY + offset.offsetY;
 
@@ -531,7 +538,7 @@ void processDialogueAiEscortTranslation(sqlite3* db, ordered_json& inputData, co
 }
 
 // Function to process Script AI Escort Cell translation
-void processScriptAiEscortCellTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, std::vector<std::string>& updatedScriptIDs, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates) {
+void processScriptAiEscortCellTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, std::vector<std::string>& updatedScriptIDs, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice) {
 
     // Regular expression to find AiEscortCell commands
     std::regex aiEscortCellRegex(R"((AiEscortCell)\s*,?\s*((?:\"[^\"]+\")|\S+)\s*,?\s*((?:\"[^\"]+\")|\S+)\s*,?\s*(\d+)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)(?:\s*,?\s*(\d+))?)",
@@ -565,7 +572,7 @@ void processScriptAiEscortCellTranslation(sqlite3* db, ordered_json& inputData, 
                     int gridY = static_cast<int>(std::floor(y / 8192.0));
 
                     // Check if coordinate is valid (in DB or customCoordinates)
-                    if (isCoordinateValid(db, gridX, gridY, customCoordinates)) {
+                    if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice)) {
                         int newGridX = gridX + offset.offsetX;
                         int newGridY = gridY + offset.offsetY;
 
@@ -623,7 +630,7 @@ void processScriptAiEscortCellTranslation(sqlite3* db, ordered_json& inputData, 
 }
 
 // Function to process Dialogue AI Escort Cell translation
-void processDialogueAiEscortCellTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates) {
+void processDialogueAiEscortCellTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice) {
 
     // Regular expression to find AiEscortCell commands
     std::regex aiEscortCellRegex(R"((AiEscortCell)\s*,?\s*((?:\"[^\"]+\")|\S+)\s*,?\s*((?:\"[^\"]+\")|\S+)\s*,?\s*(\d+)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)(?:\s*,?\s*(\d+))?)",
@@ -655,7 +662,7 @@ void processDialogueAiEscortCellTranslation(sqlite3* db, ordered_json& inputData
                     int gridY = static_cast<int>(std::floor(y / 8192.0));
 
                     // Check if coordinate is valid (in DB or customCoordinates)
-                    if (isCoordinateValid(db, gridX, gridY, customCoordinates)) {
+                    if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice)) {
                         int newGridX = gridX + offset.offsetX;
                         int newGridY = gridY + offset.offsetY;
 
@@ -707,7 +714,7 @@ void processDialogueAiEscortCellTranslation(sqlite3* db, ordered_json& inputData
 }
 
 // Function to process Script AI Follow translation
-void processScriptAiFollowTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, std::vector<std::string>& updatedScriptIDs, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates) {
+void processScriptAiFollowTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, std::vector<std::string>& updatedScriptIDs, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice) {
 
     // Regular expression to find AiFollow commands
     std::regex aiFollowRegex(R"((AiFollow)\s*,?\s*((?:\"[^\"]+\")|\S+)\s*,?\s*(\d+)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)(?:\s*,?\s*(\d+))?)",
@@ -740,7 +747,7 @@ void processScriptAiFollowTranslation(sqlite3* db, ordered_json& inputData, cons
                     int gridY = static_cast<int>(std::floor(y / 8192.0));
 
                     // Check if coordinate is valid (in DB or customCoordinates)
-                    if (isCoordinateValid(db, gridX, gridY, customCoordinates)) {
+                    if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice)) {
                         int newGridX = gridX + offset.offsetX;
                         int newGridY = gridY + offset.offsetY;
 
@@ -798,7 +805,7 @@ void processScriptAiFollowTranslation(sqlite3* db, ordered_json& inputData, cons
 }
 
 // Function to process Dialogue AI Follow translation
-void processDialogueAiFollowTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates) {
+void processDialogueAiFollowTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice) {
 
     // Regular expression to find AiFollow commands
     std::regex aiFollowRegex(R"((AiFollow)\s*,?\s*((?:\"[^\"]+\")|\S+)\s*,?\s*(\d+)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)(?:\s*,?\s*(\d+))?)",
@@ -829,7 +836,7 @@ void processDialogueAiFollowTranslation(sqlite3* db, ordered_json& inputData, co
                     int gridY = static_cast<int>(std::floor(y / 8192.0));
 
                     // Check if coordinate is valid (in DB or customCoordinates)
-                    if (isCoordinateValid(db, gridX, gridY, customCoordinates)) {
+                    if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice)) {
                         int newGridX = gridX + offset.offsetX;
                         int newGridY = gridY + offset.offsetY;
 
@@ -881,7 +888,7 @@ void processDialogueAiFollowTranslation(sqlite3* db, ordered_json& inputData, co
 }
 
 // Function to process Script AI Follow Cell translation
-void processScriptAiFollowCellTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, std::vector<std::string>& updatedScriptIDs, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates) {
+void processScriptAiFollowCellTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, std::vector<std::string>& updatedScriptIDs, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice) {
 
     // Regular expression to find AiFollow commands
     std::regex aiFollowCellRegex(R"((AIFollowCell)\s*,?\s*((?:\"[^\"]+\")|\S+)\s*,?\s*((?:\"[^\"]+\")|\S+)\s*,?\s*(\d+)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)(?:\s*,?\s*(\d+))?)",
@@ -914,7 +921,7 @@ void processScriptAiFollowCellTranslation(sqlite3* db, ordered_json& inputData, 
                     int gridY = static_cast<int>(std::floor(y / 8192.0));
 
                     // Check if coordinate is valid (in DB or customCoordinates)
-                    if (isCoordinateValid(db, gridX, gridY, customCoordinates)) {
+                    if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice)) {
                         int newGridX = gridX + offset.offsetX;
                         int newGridY = gridY + offset.offsetY;
 
@@ -972,7 +979,7 @@ void processScriptAiFollowCellTranslation(sqlite3* db, ordered_json& inputData, 
 }
 
 // Function to process Dialogue AI Follow Cell translation
-void processDialogueAiFollowCellTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates) {
+void processDialogueAiFollowCellTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice) {
 
     // Regular expression to find AiFollow commands
     std::regex aiFollowCellRegex(R"((AIFollowCell)\s*,?\s*((?:\"[^\"]+\")|\S+)\s*,?\s*((?:\"[^\"]+\")|\S+)\s*,?\s*(\d+)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)(?:\s*,?\s*(\d+))?)",
@@ -1004,7 +1011,7 @@ void processDialogueAiFollowCellTranslation(sqlite3* db, ordered_json& inputData
                     int gridY = static_cast<int>(std::floor(y / 8192.0));
 
                     // Check if coordinate is valid (in DB or customCoordinates)
-                    if (isCoordinateValid(db, gridX, gridY, customCoordinates)) {
+                    if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice)) {
                         int newGridX = gridX + offset.offsetX;
                         int newGridY = gridY + offset.offsetY;
 
@@ -1056,7 +1063,7 @@ void processDialogueAiFollowCellTranslation(sqlite3* db, ordered_json& inputData
 }
 
 // Function to process Script AI Travel translation
-void processScriptAiTravelTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, std::vector<std::string>& updatedScriptIDs, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates) {
+void processScriptAiTravelTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, std::vector<std::string>& updatedScriptIDs, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice) {
 
     // Regular expression to find AiTravel commands
     std::regex aiTravelRegex(R"((AiTravel)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)(?:\s*,?\s*(\d+))?)",
@@ -1087,7 +1094,7 @@ void processScriptAiTravelTranslation(sqlite3* db, ordered_json& inputData, cons
                     int gridY = static_cast<int>(std::floor(y / 8192.0));
 
                     // Check if coordinate is valid (in DB or customCoordinates)
-                    if (isCoordinateValid(db, gridX, gridY, customCoordinates)) {
+                    if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice)) {
                         int newGridX = gridX + offset.offsetX;
                         int newGridY = gridY + offset.offsetY;
 
@@ -1144,7 +1151,7 @@ void processScriptAiTravelTranslation(sqlite3* db, ordered_json& inputData, cons
 }
 
 // Function to process Dialogue AI Travel translation
-void processDialogueAiTravelTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates) {
+void processDialogueAiTravelTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice) {
 
     // Regular expression to find AiTravel commands
     std::regex aiTravelRegex(R"((AiTravel)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)(?:\s*,?\s*(\d+))?)",
@@ -1173,7 +1180,7 @@ void processDialogueAiTravelTranslation(sqlite3* db, ordered_json& inputData, co
                     int gridY = static_cast<int>(std::floor(y / 8192.0));
 
                     // Check if coordinate is valid (in DB or customCoordinates)
-                    if (isCoordinateValid(db, gridX, gridY, customCoordinates)) {
+                    if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice)) {
                         int newGridX = gridX + offset.offsetX;
                         int newGridY = gridY + offset.offsetY;
 
@@ -1220,7 +1227,7 @@ void processDialogueAiTravelTranslation(sqlite3* db, ordered_json& inputData, co
 }
 
 // Function to process Script Position translation
-void processScriptPositionTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, std::vector<std::string>& updatedScriptIDs, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates) {
+void processScriptPositionTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, std::vector<std::string>& updatedScriptIDs, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice) {
 
     // Regular expression to find Position commands
     std::regex positionRegex(R"((Position)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?))",
@@ -1251,7 +1258,7 @@ void processScriptPositionTranslation(sqlite3* db, ordered_json& inputData, cons
                     int gridY = static_cast<int>(std::floor(y / 8192.0));
 
                     // Check if coordinate is valid (in DB or customCoordinates)
-                    if (isCoordinateValid(db, gridX, gridY, customCoordinates)) {
+                    if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice)) {
                         int newGridX = gridX + offset.offsetX;
                         int newGridY = gridY + offset.offsetY;
 
@@ -1305,7 +1312,7 @@ void processScriptPositionTranslation(sqlite3* db, ordered_json& inputData, cons
 }
 
 // Function to process Dialogue Position translation
-void processDialoguePositionTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates) {
+void processDialoguePositionTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice) {
 
     // Regular expression to find Position commands
     std::regex positionRegex(R"((Position)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?))",
@@ -1334,7 +1341,7 @@ void processDialoguePositionTranslation(sqlite3* db, ordered_json& inputData, co
                     int gridY = static_cast<int>(std::floor(y / 8192.0));
 
                     // Check if coordinate is valid (in DB or customCoordinates)
-                    if (isCoordinateValid(db, gridX, gridY, customCoordinates)) {
+                    if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice)) {
                         int newGridX = gridX + offset.offsetX;
                         int newGridY = gridY + offset.offsetY;
 
@@ -1378,7 +1385,7 @@ void processDialoguePositionTranslation(sqlite3* db, ordered_json& inputData, co
 }
 
 // Function to process Script PositionCell translation
-void processScriptPositionCellTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, std::vector<std::string>& updatedScriptIDs, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates) {
+void processScriptPositionCellTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, std::vector<std::string>& updatedScriptIDs, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice) {
 
     // Regular expression to find PositionCell commands
     std::regex positionCellRegex(R"((PositionCell)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*((?:\"[^\"]+\")|\S+))",
@@ -1410,7 +1417,7 @@ void processScriptPositionCellTranslation(sqlite3* db, ordered_json& inputData, 
                     int gridY = static_cast<int>(std::floor(y / 8192.0));
 
                     // Check if coordinate is valid (in DB or customCoordinates)
-                    if (isCoordinateValid(db, gridX, gridY, customCoordinates)) {
+                    if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice)) {
                         int newGridX = gridX + offset.offsetX;
                         int newGridY = gridY + offset.offsetY;
 
@@ -1465,7 +1472,7 @@ void processScriptPositionCellTranslation(sqlite3* db, ordered_json& inputData, 
 }
 
 // Function to process Dialogue PositionCell translation
-void processDialoguePositionCellTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates) {
+void processDialoguePositionCellTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice) {
 
     // Regular expression to find PositionCell commands
     std::regex positionCellRegex(R"((PositionCell)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*((?:\"[^\"]+\")|\S+))",
@@ -1495,7 +1502,7 @@ void processDialoguePositionCellTranslation(sqlite3* db, ordered_json& inputData
                     int gridY = static_cast<int>(std::floor(y / 8192.0));
 
                     // Check if coordinate is valid (in DB or customCoordinates)
-                    if (isCoordinateValid(db, gridX, gridY, customCoordinates)) {
+                    if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice)) {
                         int newGridX = gridX + offset.offsetX;
                         int newGridY = gridY + offset.offsetY;
 
@@ -1544,7 +1551,7 @@ void processDialoguePositionCellTranslation(sqlite3* db, ordered_json& inputData
 }
 
 // Function to process Script PlaceItem translation
-void processScriptPlaceItemTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, std::vector<std::string>& updatedScriptIDs, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates) {
+void processScriptPlaceItemTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, std::vector<std::string>& updatedScriptIDs, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice) {
 
     // Regular expression to find PlaceItem commands
     std::regex placeItemRegex(R"((PlaceItem)\s*,?\s*((?:\"[^\"]+\")|\S+)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?))",
@@ -1576,7 +1583,7 @@ void processScriptPlaceItemTranslation(sqlite3* db, ordered_json& inputData, con
                     int gridY = static_cast<int>(std::floor(y / 8192.0));
 
                     // Check if coordinate is valid (in DB or customCoordinates)
-                    if (isCoordinateValid(db, gridX, gridY, customCoordinates)) {
+                    if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice)) {
                         int newGridX = gridX + offset.offsetX;
                         int newGridY = gridY + offset.offsetY;
 
@@ -1630,7 +1637,7 @@ void processScriptPlaceItemTranslation(sqlite3* db, ordered_json& inputData, con
 }
 
 // Function to process Dialogue PlaceItem translation
-void processDialoguePlaceItemTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates) {
+void processDialoguePlaceItemTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice) {
 
     // Regular expression to find PlaceItem commands
     std::regex placeItemRegex(R"((PlaceItem)\s*,?\s*((?:\"[^\"]+\")|\S+)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?))",
@@ -1660,7 +1667,7 @@ void processDialoguePlaceItemTranslation(sqlite3* db, ordered_json& inputData, c
                     int gridY = static_cast<int>(std::floor(y / 8192.0));
 
                     // Check if coordinate is valid (in DB or customCoordinates)
-                    if (isCoordinateValid(db, gridX, gridY, customCoordinates)) {
+                    if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice)) {
                         int newGridX = gridX + offset.offsetX;
                         int newGridY = gridY + offset.offsetY;
 
@@ -1708,7 +1715,7 @@ void processDialoguePlaceItemTranslation(sqlite3* db, ordered_json& inputData, c
 }
 
 // Function to process Script PlaceItemCell translation
-void processScriptPlaceItemCellTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, std::vector<std::string>& updatedScriptIDs, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates) {
+void processScriptPlaceItemCellTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, std::vector<std::string>& updatedScriptIDs, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice) {
 
     // Regular expression to find PlaceItemCell commands
     std::regex placeItemCellRegex(R"((PlaceItemCell)\s*,?\s*((?:\"[^\"]+\")|\S+)\s*,?\s*((?:\"[^\"]+\")|\S+)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?))",
@@ -1741,7 +1748,7 @@ void processScriptPlaceItemCellTranslation(sqlite3* db, ordered_json& inputData,
                     int gridY = static_cast<int>(std::floor(y / 8192.0));
 
                     // Check if coordinate is valid (in DB or customCoordinates)
-                    if (isCoordinateValid(db, gridX, gridY, customCoordinates)) {
+                    if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice)) {
                         int newGridX = gridX + offset.offsetX;
                         int newGridY = gridY + offset.offsetY;
 
@@ -1795,7 +1802,7 @@ void processScriptPlaceItemCellTranslation(sqlite3* db, ordered_json& inputData,
 }
 
 // Function to process Dialogue PlaceItemCell translation
-void processDialoguePlaceItemCellTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates) {
+void processDialoguePlaceItemCellTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice) {
 
     // Regular expression to find PlaceItemCell commands
     std::regex placeItemCellRegex(R"((PlaceItemCell)\s*,?\s*((?:\"[^\"]+\")|\S+)\s*,?\s*((?:\"[^\"]+\")|\S+)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?))",
@@ -1826,7 +1833,7 @@ void processDialoguePlaceItemCellTranslation(sqlite3* db, ordered_json& inputDat
                     int gridY = static_cast<int>(std::floor(y / 8192.0));
 
                     // Check if coordinate is valid (in DB or customCoordinates)
-                    if (isCoordinateValid(db, gridX, gridY, customCoordinates)) {
+                    if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice)) {
                         int newGridX = gridX + offset.offsetX;
                         int newGridY = gridY + offset.offsetY;
 
@@ -1915,7 +1922,7 @@ void processTranslation(ordered_json& jsonData, const GridOffset& offset, int& r
 }
 
 // Function to process coordinates for Cell, Landscape, and PathGrid types
-void processGridValues(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates) {
+void processGridValues(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice) {
 
     // List of supported types
     std::vector<std::string> typeNames = { "Cell", "Landscape", "PathGrid" };
@@ -1950,7 +1957,7 @@ void processGridValues(sqlite3* db, ordered_json& inputData, const GridOffset& o
         }
 
         // Check if coordinate is valid (in DB or customCoordinates)
-        if (isCoordinateValid(db, gridX, gridY, customCoordinates)) {
+        if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice)) {
             int newGridX = gridX + offset.offsetX;
             int newGridY = gridY + offset.offsetY;
 
@@ -2115,29 +2122,29 @@ int main() {
     std::vector<std::string> updatedScriptIDs;
 
     // Search for data and make replacements
-    processGridValues(db, inputData, offset, replacementsFlag, customCoordinates);
-    processInterriorDoorsTranslation(db, inputData, offset, replacementsFlag, customCoordinates);
-    processNpcTravelDestinations(db, inputData, offset, replacementsFlag, customCoordinates);
+    processGridValues(db, inputData, offset, replacementsFlag, customCoordinates, ConversionChoice);
+    processInterriorDoorsTranslation(db, inputData, offset, replacementsFlag, customCoordinates, ConversionChoice);
+    processNpcTravelDestinations(db, inputData, offset, replacementsFlag, customCoordinates, ConversionChoice);
 
-    processScriptAiEscortTranslation(db, inputData, offset, replacementsFlag, updatedScriptIDs, customCoordinates);
-    processScriptAiEscortCellTranslation(db, inputData, offset, replacementsFlag, updatedScriptIDs, customCoordinates);
-    processScriptAiFollowTranslation(db, inputData, offset, replacementsFlag, updatedScriptIDs, customCoordinates);
-    processScriptAiFollowCellTranslation(db, inputData, offset, replacementsFlag, updatedScriptIDs, customCoordinates);
-    processScriptAiTravelTranslation(db, inputData, offset, replacementsFlag, updatedScriptIDs, customCoordinates);
-    processScriptPositionTranslation(db, inputData, offset, replacementsFlag, updatedScriptIDs, customCoordinates);
-    processScriptPositionCellTranslation(db, inputData, offset, replacementsFlag, updatedScriptIDs, customCoordinates);
-    processScriptPlaceItemTranslation(db, inputData, offset, replacementsFlag, updatedScriptIDs, customCoordinates);
-    processScriptPlaceItemCellTranslation(db, inputData, offset, replacementsFlag, updatedScriptIDs, customCoordinates);
+    processScriptAiEscortTranslation(db, inputData, offset, replacementsFlag, updatedScriptIDs, customCoordinates, ConversionChoice);
+    processScriptAiEscortCellTranslation(db, inputData, offset, replacementsFlag, updatedScriptIDs, customCoordinates, ConversionChoice);
+    processScriptAiFollowTranslation(db, inputData, offset, replacementsFlag, updatedScriptIDs, customCoordinates, ConversionChoice);
+    processScriptAiFollowCellTranslation(db, inputData, offset, replacementsFlag, updatedScriptIDs, customCoordinates, ConversionChoice);
+    processScriptAiTravelTranslation(db, inputData, offset, replacementsFlag, updatedScriptIDs, customCoordinates, ConversionChoice);
+    processScriptPositionTranslation(db, inputData, offset, replacementsFlag, updatedScriptIDs, customCoordinates, ConversionChoice);
+    processScriptPositionCellTranslation(db, inputData, offset, replacementsFlag, updatedScriptIDs, customCoordinates, ConversionChoice);
+    processScriptPlaceItemTranslation(db, inputData, offset, replacementsFlag, updatedScriptIDs, customCoordinates, ConversionChoice);
+    processScriptPlaceItemCellTranslation(db, inputData, offset, replacementsFlag, updatedScriptIDs, customCoordinates, ConversionChoice);
 
-    processDialogueAiEscortTranslation(db, inputData, offset, replacementsFlag, customCoordinates);
-    processDialogueAiEscortCellTranslation(db, inputData, offset, replacementsFlag, customCoordinates);
-    processDialogueAiFollowTranslation(db, inputData, offset, replacementsFlag, customCoordinates);
-    processDialogueAiFollowCellTranslation(db, inputData, offset, replacementsFlag, customCoordinates);
-    processDialogueAiTravelTranslation(db, inputData, offset, replacementsFlag, customCoordinates);
-    processDialoguePositionTranslation(db, inputData, offset, replacementsFlag, customCoordinates);
-    processDialoguePositionCellTranslation(db, inputData, offset, replacementsFlag, customCoordinates);
-    processDialoguePlaceItemTranslation(db, inputData, offset, replacementsFlag, customCoordinates);
-    processDialoguePlaceItemCellTranslation(db, inputData, offset, replacementsFlag, customCoordinates);
+    processDialogueAiEscortTranslation(db, inputData, offset, replacementsFlag, customCoordinates, ConversionChoice);
+    processDialogueAiEscortCellTranslation(db, inputData, offset, replacementsFlag, customCoordinates, ConversionChoice);
+    processDialogueAiFollowTranslation(db, inputData, offset, replacementsFlag, customCoordinates, ConversionChoice);
+    processDialogueAiFollowCellTranslation(db, inputData, offset, replacementsFlag, customCoordinates, ConversionChoice);
+    processDialogueAiTravelTranslation(db, inputData, offset, replacementsFlag, customCoordinates, ConversionChoice);
+    processDialoguePositionTranslation(db, inputData, offset, replacementsFlag, customCoordinates, ConversionChoice);
+    processDialoguePositionCellTranslation(db, inputData, offset, replacementsFlag, customCoordinates, ConversionChoice);
+    processDialoguePlaceItemTranslation(db, inputData, offset, replacementsFlag, customCoordinates, ConversionChoice);
+    processDialoguePlaceItemCellTranslation(db, inputData, offset, replacementsFlag, customCoordinates, ConversionChoice);
 
     // If no replacements were found, cancel the conversion
     if (replacementsFlag == 0) {
