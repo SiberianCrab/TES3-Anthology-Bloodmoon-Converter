@@ -16,7 +16,7 @@ using ordered_json = nlohmann::ordered_json;
 
 // Define program metadata constants
 const std::string PROGRAM_NAME = "TES3 Anthology Bloodmoon Converter";
-const std::string PROGRAM_VERSION = "V 1.0.0";
+const std::string PROGRAM_VERSION = "V 1.0.1";
 const std::string PROGRAM_AUTHOR = "by SiberianCrab";
 
 // Define the GridOffset structure
@@ -229,9 +229,14 @@ bool isCoordinateValid(sqlite3* db, int gridX, int gridY, const std::unordered_s
     // Get the offset from the getGridOffset function
     GridOffset offset = getGridOffset(conversionChoice);
 
-    // Apply the offset to the coordinates
-    int adjustedGridX = gridX + offset.offsetX;
-    int adjustedGridY = gridY + offset.offsetY;
+    int adjustedGridX = gridX;
+    int adjustedGridY = gridY;
+
+    // Apply the offset to the coordinates only for conversionChoice = 2
+    if (conversionChoice == 2) {
+        adjustedGridX = gridX + offset.offsetX;
+        adjustedGridY = gridY + offset.offsetY;
+    }
 
     // Check in the database
     sqlite3_stmt* stmt;
@@ -2102,15 +2107,15 @@ int main() {
     inputFile.close();
 
     // Check if the required dependencies are ordered correctly in the input data
-    auto [isValid, validMastersDB] = checkDependencyOrder(inputData);
-    if (!isValid) {
+    //auto [isValid, validMastersDB] = checkDependencyOrder(inputData);
+    //if (!isValid) {
         // Remove the temporary JSON file if it exists
-        if (std::filesystem::exists(jsonFilePath)) {
-            std::filesystem::remove(jsonFilePath);
-            logMessage("Temporary JSON file deleted: " + jsonFilePath.string() + "\n");
-        }
-        logErrorAndExit(db, "Required Parent Masters not found or are in the wrong order.\n");
-    }
+    //    if (std::filesystem::exists(jsonFilePath)) {
+    //        std::filesystem::remove(jsonFilePath);
+    //        logMessage("Temporary JSON file deleted: " + jsonFilePath.string() + "\n");
+    //    }
+    //    logErrorAndExit(db, "Required Parent Masters not found or are in the wrong order.\n");
+    //}
 
     // Retrieve the grid offset based on the conversion choice
     GridOffset offset = getGridOffset(ConversionChoice);

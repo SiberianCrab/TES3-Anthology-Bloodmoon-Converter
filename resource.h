@@ -1,6 +1,6 @@
 //{{NO_DEPENDENCIES}}
 // Microsoft Visual C++ generated include file.
-// Used by TES3 Anthology Solstheim Converter.rc
+// Used by TES3 Anthology Bloodmoon Converter.rc
 //
 #define IDI_ICON1                       102
 
