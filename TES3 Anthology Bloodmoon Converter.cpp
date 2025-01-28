@@ -77,24 +77,42 @@ void clearLogFile(const std::filesystem::path& logFileName = "tes3_ab_log.txt") 
     }
 }
 
-// Function to get user input for conversion choice
-int getUserConversionChoice() {
-    int ConversionChoice;
+// Unified function for handling user choices
+int getUserChoice(const std::string& prompt,
+    const std::unordered_set<std::string>& validChoices,
+    const std::string& errorMessage = "Invalid choice: enter ")
+{
+    std::string input;
     while (true) {
-        std::cout << "Convert a plugin or master file:\n"
-            "1. From Bloodmoon to Anthology Bloodmoon\n2. From Anthology Bloodmoon to Bloodmoon\nChoice: ";
-        std::string input;
+        std::cout << prompt;
         std::getline(std::cin, input);
-        if (input == "1" || input == "2") {
-            ConversionChoice = std::stoi(input);
-            break;
+
+        if (validChoices.count(input)) {
+            return std::stoi(input);
         }
-        logMessage("Invalid choice. Enter 1 or 2.");
+
+        // List of valid options for the error message
+        std::string validOptions;
+        for (const auto& option : validChoices) {
+            if (!validOptions.empty()) validOptions += " or ";
+            validOptions += option;
+        }
+        logMessage(errorMessage + validOptions + ".\n");
     }
-    return ConversionChoice;
 }
 
-// Function to get the path of the input file from the user
+// Function for handling conversion choises
+int getUserConversionChoice() {
+    return getUserChoice(
+        "Convert a plugin or master file:\n"
+        "1. From Bloodmoon to Anthology Bloodmoon\n"
+        "2. From Anthology Bloodmoon to Bloodmoon\n"
+        "Choice: ",
+        { "1", "2" }
+    );
+}
+
+// Function for handling input file path from user
 std::filesystem::path getInputFilePath() {
     std::filesystem::path filePath;
     while (true) {
@@ -113,7 +131,7 @@ std::filesystem::path getInputFilePath() {
             logMessage("Input file found: " + filePath.string());
             break;
         }
-        logMessage("Input file not found or incorrect extension.");
+        logMessage("Input file not found or incorrect extension.\n");
     }
     return filePath;
 }
