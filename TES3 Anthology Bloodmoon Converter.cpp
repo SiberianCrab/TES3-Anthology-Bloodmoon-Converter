@@ -1,22 +1,30 @@
-#include <utility>
-#include <iomanip>
-#include <regex>
+#include <algorithm>
 #include <filesystem>
+#include <format>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <limits>
+#include <optional>
+#include <regex>
+#include <sstream>
 #include <string>
 #include <unordered_set>
+#include <utility>
 #include <vector>
-#include <sqlite3.h>
-#include <json.hpp>
 
-// Define an alias for ordered JSON type from the nlohmann library
+#include <cctype>
+#include <cstdlib>
+
+#include <json.hpp>
+#include <sqlite3.h>
+
+// Define an alias for ordered_json type from the nlohmann library
 using ordered_json = nlohmann::ordered_json;
 
 // Define program metadata constants
 const std::string PROGRAM_NAME = "TES3 Anthology Bloodmoon Converter";
-const std::string PROGRAM_VERSION = "V 1.0.1";
+const std::string PROGRAM_VERSION = "V 1.1.0";
 const std::string PROGRAM_AUTHOR = "by SiberianCrab";
 
 // Define the GridOffset structure
@@ -30,57 +38,35 @@ GridOffset getGridOffset(int conversionChoice) {
     return (conversionChoice == 1) ? GridOffset{ 7, 6 } : GridOffset{ -7, -6 };
 }
 
+// Function to clear log file
+void logClear() {
+    std::ofstream file("tes3_ab_log.txt", std::ios::trunc);
+}
+
 // Function to log messages to both a log file and console
-void logMessage(const std::string& message, const std::filesystem::path& logFilePath = "tes3_ab_log.txt") {
-    std::ofstream logFile(logFilePath, std::ios_base::app);
-
-    // Check if the file opened successfully and write the message
-    if (logFile.is_open()) {
-        logFile << message << std::endl;
-    }
-    else {
-        std::cerr << "Failed to open log file." << std::endl;
-    }
-
+void logMessage(const std::string& message, std::ofstream& logFile) {
+    logFile << message << std::endl;
     std::cout << message << std::endl;
 }
 
-// Function to log errors, close the database (if open), and terminate the program
-void logErrorAndExit(sqlite3* db, const std::string& message) {
-    logMessage(message);
+// Function to log errors, close the database and terminate the program
+void logErrorAndExit(sqlite3* db, const std::string& message, std::ofstream& logFile) {
+    logMessage(message, logFile);
 
-    // Close the SQLite database if it is open to avoid memory leaks
-    if (db) {
-        sqlite3_close(db);
-    }
+    if (db) sqlite3_close(db);
+    logFile.close();
 
-    // Prompt the user to press Enter to continue and clear any input buffer
-    std::cout << "Press Enter to continue...";
+    std::cout << "Press Enter to exit...";
     std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
-    // Throw a runtime error to exit the program and propagate the error
-    throw std::runtime_error(message);
-}
-
-// Function to clear the log file if it exists, and log the status
-void clearLogFile(const std::filesystem::path& logFileName = "tes3_ab_log.txt") {
-    // Check if the log file exists before trying to remove it
-    if (std::filesystem::exists(logFileName)) {
-        try {
-            std::filesystem::remove(logFileName);
-            logMessage("Log cleared successfully...", logFileName);
-        }
-        catch (const std::filesystem::filesystem_error& e) {
-            // Log any error that occurs during the file removal process
-            logMessage("Error clearing log file: " + std::string(e.what()), logFileName);
-        }
-    }
+    std::exit(EXIT_FAILURE);
 }
 
 // Unified function for handling user choices
 int getUserChoice(const std::string& prompt,
     const std::unordered_set<std::string>& validChoices,
-    const std::string& errorMessage = "Invalid choice: enter ")
+    std::ofstream& logFile,
+    const std::string& errorMessage = "\nInvalid choice: enter ")
 {
     std::string input;
     while (true) {
@@ -97,27 +83,27 @@ int getUserChoice(const std::string& prompt,
             if (!validOptions.empty()) validOptions += " or ";
             validOptions += option;
         }
-        logMessage(errorMessage + validOptions + ".\n");
+        logMessage(errorMessage + validOptions, logFile);
     }
 }
 
 // Function for handling conversion choises
-int getUserConversionChoice() {
+int getUserConversionChoice(std::ofstream& logFile) {
     return getUserChoice(
-        "Convert a plugin or master file:\n"
+        "\nConvert a plugin or master file:\n"
         "1. From Bloodmoon to Anthology Bloodmoon\n"
         "2. From Anthology Bloodmoon to Bloodmoon\n"
         "Choice: ",
-        { "1", "2" }
+        { "1", "2" }, logFile
     );
 }
 
 // Function for handling input file path from user
-std::filesystem::path getInputFilePath() {
+std::filesystem::path getInputFilePath(std::ofstream& logFile) {
     std::filesystem::path filePath;
     while (true) {
-        std::cout << "Enter full path to your .ESP or .ESM (including extension), or filename (with extension)\n"
-            "if it's in the same directory with this program: ";
+        std::cout << "\nEnter full path to your .ESP|ESM or just filename (with extension), if your .ESP|ESM is in the same directory\n"
+                     "with this program: ";
         std::string input;
         std::getline(std::cin, input);
         filePath = input;
@@ -128,62 +114,53 @@ std::filesystem::path getInputFilePath() {
 
         if (std::filesystem::exists(filePath) &&
             (extension == ".esp" || extension == ".esm")) {
-            logMessage("Input file found: " + filePath.string());
+            logMessage("Input file found: " + filePath.string(), logFile);
             break;
         }
-        logMessage("Input file not found or incorrect extension.\n");
+        logMessage("\nERROR - input file not found: check its directory, name and extension!", logFile);
     }
     return filePath;
 }
 
-// Function to check the order of dependencies in a file's data
-std::pair<bool, std::unordered_set<int>> checkDependencyOrder(const ordered_json& inputData) {
-    // Look for the "Header" section in the JSON.
+// Function to check the dependency order of Parent Master files in the input .ESP|ESM data
+std::pair<bool, std::unordered_set<int>> checkDependencyOrder(const ordered_json& inputData, std::ofstream& logFile) {
     auto headerIter = std::find_if(inputData.begin(), inputData.end(), [](const ordered_json& item) {
         return item.contains("type") && item["type"] == "Header";
         });
 
-    // Check if we found the "Header" section
     if (headerIter == inputData.end() || !headerIter->contains("masters")) {
-        logMessage("Error: Missing 'Header' section or 'masters' key.");
+        logMessage("ERROR - missing 'header' section or 'masters' key!", logFile);
         return { false, {} };
     }
 
-    // Extract the list of masters
     const auto& masters = (*headerIter)["masters"];
+    std::optional<size_t> mwPos, tPos, bPos;
 
-    // Initialize positions as -1 to track the master files
-    size_t mwPos = -1, tPos = -1, bPos = -1;
-
-    // Go through the list and check the positions of the master files
     for (size_t i = 0; i < masters.size(); ++i) {
         if (masters[i].is_array() && !masters[i].empty()) {
-            std::string masterName = masters[i][0];
-            if (masterName == "Morrowind.esm") mwPos = i;
-            else if (masterName == "Tribunal.esm") tPos = i;
-            else if (masterName == "Bloodmoon.esm") bPos = i;
+            const std::string masterName = masters[i][0];
+            if (masterName == "Morrowind.esm") mwPos.emplace(i);
+            else if (masterName == "Tribunal.esm") tPos.emplace(i);
+            else if (masterName == "Bloodmoon.esm") bPos.emplace(i);
         }
     }
 
-    if (mwPos == static_cast<size_t>(-1)) {
-        logMessage("Morrowind.esm not found!");
+    if (!mwPos.has_value()) {
+        logMessage("ERROR - Morrowind.esm dependency not found!", logFile);
         return { false, {} };
     }
 
-    // Checking the order of Tribunal and Bloodmoon
-    if (tPos != static_cast<size_t>(-1) && bPos != static_cast<size_t>(-1)) {
-        if (tPos > mwPos && bPos > tPos) {
-            logMessage("Valid order of Parent Masters found: M+T+B.\n");
+    if (tPos.has_value() && bPos.has_value()) {
+        if (*tPos > *mwPos && *bPos > *tPos) {
+            logMessage("Valid order of Parent Master files found: M+T+B\n", logFile);
             return { true, {} };
         }
-        else {
-            logMessage("Invalid order of Parent Masters! Tribunal.esm should be before Bloodmoon.esm.\n");
-            return { false, {} };
-        }
+        logMessage("ERROR - invalid order of Parent Master files found: M+B+T\n", logFile);
+        return { false, {} };
     }
 
-    if (bPos != static_cast<size_t>(-1) && bPos > mwPos) {
-        logMessage("Valid order of Parent Masters found: M+B.\n");
+    if (bPos.has_value() && *bPos > *mwPos) {
+        logMessage("Valid order of Parent Master files found: M+B\n", logFile);
         return { true, {} };
     }
 
@@ -196,19 +173,19 @@ struct PairHash {
     std::size_t operator()(const std::pair<T1, T2>& p) const {
         auto hash1 = std::hash<T1>{}(p.first);
         auto hash2 = std::hash<T2>{}(p.second);
-        return hash1 ^ (hash2 << 1); // Combine the two hash values
+        return hash1 ^ (hash2 << 1);
     }
 };
 
 // Function to load custom grid coordinates
-void loadCustomGridCoordinates(const std::string& filePath, std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates) {
+void loadCustomGridCoordinates(const std::string& filePath, std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, std::ofstream& logFile) {
     std::ifstream file(filePath);
     if (!file.is_open()) {
-        logMessage("Failed to open custom grid coordinates file: " + filePath);
+        logMessage("ERROR - failed to open custom grid coordinates file: " + filePath, logFile);
         return;
     }
 
-    logMessage("Loading custom grid coordinates from: " + filePath);
+    logMessage("Loading custom grid coordinates from: " + filePath, logFile);
 
     std::string line;
     while (std::getline(file, line)) {
@@ -232,10 +209,10 @@ void loadCustomGridCoordinates(const std::string& filePath, std::unordered_set<s
         char comma; // To handle the comma separator
         if (lineStream >> x >> comma >> y && comma == ',') {
             customCoordinates.emplace(x, y);
-            logMessage("Loaded custom coordinate: (" + std::to_string(x) + ", " + std::to_string(y) + ")");
+            logMessage("Loaded custom coordinate: (" + std::to_string(x) + ", " + std::to_string(y) + ")", logFile);
         }
         else {
-            logMessage("Invalid format in custom grid coordinates file: " + line);
+            logMessage("WARNING - invalid format in custom grid coordinates file: " + line, logFile);
         }
     }
 
@@ -243,7 +220,7 @@ void loadCustomGridCoordinates(const std::string& filePath, std::unordered_set<s
 }
 
 // Function to check if a given grid coordinate (gridX, gridY) is valid. It checks both the database and custom user-defined coordinates
-bool isCoordinateValid(sqlite3* db, int gridX, int gridY, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice) {
+bool isCoordinateValid(sqlite3* db, int gridX, int gridY, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice, std::ofstream& logFile) {
     // Get the offset from the getGridOffset function
     GridOffset offset = getGridOffset(conversionChoice);
 
@@ -286,7 +263,7 @@ bool isCoordinateValid(sqlite3* db, int gridX, int gridY, const std::unordered_s
 }
 
 // Function to process translations for interior door coordinates
-void processInterriorDoorsTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice) {
+void processInterriorDoorsTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice, std::ofstream& logFile) {
 
     // Loop through all objects in inputData
     for (auto& cell : inputData) {
@@ -308,13 +285,12 @@ void processInterriorDoorsTranslation(sqlite3* db, ordered_json& inputData, cons
                             int gridY = static_cast<int>(std::floor(destY / 8192.0));
 
                             // Check if coordinate is valid (in DB or customCoordinates)
-                            if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice)) {
+                            if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice, logFile)) {
                                 int newGridX = gridX + offset.offsetX;
                                 int newGridY = gridY + offset.offsetY;
 
-                                logMessage("Found Interior Cell Door translation: (" + std::to_string(gridX) + ", " +
-                                    std::to_string(gridY) + ") -> (" + std::to_string(newGridX) + ", " +
-                                    std::to_string(newGridY) + ")");
+                                logMessage("Found: Interior Door translation -> grid (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
+                                           ") | coordinates (" + std::to_string(destX) + ", " + std::to_string(destY) + ")", logFile);
 
                                 // New calculation keeping the fractional part for destination translation
                                 double newDestX = (newGridX * 8192.0) + (destX - (gridX * 8192.0));
@@ -327,9 +303,8 @@ void processInterriorDoorsTranslation(sqlite3* db, ordered_json& inputData, cons
                                 reference["destination"]["translation"][0] = newDestX;
                                 reference["destination"]["translation"][1] = newDestY;
 
-                                logMessage("Calculated new destination coordinates: (" + std::to_string(destX) + ", " +
-                                    std::to_string(destY) + ") -> (" + std::to_string(newDestX) + ", " +
-                                    std::to_string(newDestY) + ")");
+                                logMessage("Calculating: new destination -----> grid (" + std::to_string(newGridX) + ", " + std::to_string(newGridY) +
+                                           ") | coordinates (" + std::to_string(newDestX) + ", " + std::to_string(newDestY) + ")", logFile);
                             }
                         }
                     }
@@ -339,8 +314,8 @@ void processInterriorDoorsTranslation(sqlite3* db, ordered_json& inputData, cons
     }
 }
 
-// Function to process NPC travel destinations
-void processNpcTravelDestinations(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice) {
+// Function to process NPC Travel Service coordinates
+void processNpcTravelDestinations(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice, std::ofstream& logFile) {
 
     // Loop through all objects in inputData
     for (auto& npc : inputData) {
@@ -356,15 +331,14 @@ void processNpcTravelDestinations(sqlite3* db, ordered_json& inputData, const Gr
                         int gridY = static_cast<int>(std::floor(destY / 8192.0));
 
                         // Check if coordinate is valid (in DB or customCoordinates)
-                        if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice)) {
+                        if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice, logFile)) {
                             int newGridX = gridX + offset.offsetX;
                             int newGridY = gridY + offset.offsetY;
 
-                            logMessage("Found Npc travel destination: (" + std::to_string(gridX) + ", " +
-                                std::to_string(gridY) + ") -> (" + std::to_string(newGridX) + ", " +
-                                std::to_string(newGridY) + ")");
+                            logMessage("Found: NPC 'Travel Service' translation -> grid (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
+                                       ") | coordinates (" + std::to_string(destX) + ", " + std::to_string(destY) + ")", logFile);
 
-                            // New calculation keeping the fractional part for destination translation
+                            // New calculation keeping the fractional part for destination coordinates
                             double newDestX = (newGridX * 8192.0) + (destX - (gridX * 8192.0));
                             double newDestY = (newGridY * 8192.0) + (destY - (gridY * 8192.0));
 
@@ -375,9 +349,8 @@ void processNpcTravelDestinations(sqlite3* db, ordered_json& inputData, const Gr
                             destination["translation"][0] = newDestX;
                             destination["translation"][1] = newDestY;
 
-                            logMessage("Calculated new NPC travel destination coordinates: (" + std::to_string(destX) + ", " +
-                                std::to_string(destY) + ") -> (" + std::to_string(newDestX) + ", " +
-                                std::to_string(newDestY) + ")");
+                            logMessage("Calculating: new destination ------------> grid (" + std::to_string(newGridX) + ", " + std::to_string(newGridY) +
+                                       ") | coordinates (" + std::to_string(newDestX) + ", " + std::to_string(newDestY) + ")", logFile);
                         }
                     }
                 }
@@ -387,7 +360,7 @@ void processNpcTravelDestinations(sqlite3* db, ordered_json& inputData, const Gr
 }
 
 // Function to process Script AI Escort translation
-void processScriptAiEscortTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, std::vector<std::string>& updatedScriptIDs, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice) {
+void processScriptAiEscortTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, std::vector<std::string>& updatedScriptIDs, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice, std::ofstream& logFile) {
 
     // Regular expression to find AiEscort commands
     std::regex aiEscortRegex(R"((AiEscort)\s*,?\s*((?:\"[^\"]+\")|\S+)\s*,?\s*(\d+)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)(?:\s*,?\s*(\d+))?)",
@@ -410,31 +383,29 @@ void processScriptAiEscortTranslation(sqlite3* db, ordered_json& inputData, cons
                     std::string commandType = match[1].str();
                     std::string actorID = match[2].str();
                     std::string duration = match[3].str();
-                    double x = std::stod(match[4].str());
-                    double y = std::stod(match[5].str());
-                    double z = std::stod(match[6].str());
+                    double destX = std::stod(match[4].str());
+                    double destY = std::stod(match[5].str());
+                    double destZ = std::stod(match[6].str());
                     std::string resetValue = (match.size() > 7 && match[7].matched) ? match[7].str() : "";
 
                     // Round only the integer part for grid coordinates
-                    int gridX = static_cast<int>(std::floor(x / 8192.0));
-                    int gridY = static_cast<int>(std::floor(y / 8192.0));
+                    int gridX = static_cast<int>(std::floor(destX / 8192.0));
+                    int gridY = static_cast<int>(std::floor(destY / 8192.0));
 
                     // Check if coordinate is valid (in DB or customCoordinates)
-                    if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice)) {
+                    if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice, logFile)) {
                         int newGridX = gridX + offset.offsetX;
                         int newGridY = gridY + offset.offsetY;
 
-                        logMessage("Found Script AI Escort translation: (" + std::to_string(gridX) + ", " +
-                            std::to_string(gridY) + ") -> (" + std::to_string(newGridX) + ", " +
-                            std::to_string(newGridY) + ")");
+                        logMessage("Found: Script 'AI Escort' translation -> grid (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
+                                   ") | coordinates (" + std::to_string(destX) + ", " + std::to_string(destY) + ")", logFile);
 
                         // New calculation keeping the fractional part
-                        double newX = (newGridX * 8192.0) + (x - (gridX * 8192.0));
-                        double newY = (newGridY * 8192.0) + (y - (gridY * 8192.0));
+                        double newDestX = (newGridX * 8192.0) + (destX - (gridX * 8192.0));
+                        double newDestY = (newGridY * 8192.0) + (destY - (gridY * 8192.0));
 
-                        logMessage("Calculated new coordinates: (" + std::to_string(x) + ", " +
-                            std::to_string(y) + ") -> (" + std::to_string(newX) + ", " +
-                            std::to_string(newY) + ")");
+                        logMessage("Calculating: new destination ----------> grid (" + std::to_string(newGridX) + ", " + std::to_string(newGridY) +
+                                   ") | coordinates (" + std::to_string(newDestX) + ", " + std::to_string(newDestY) + ")", logFile);
 
                         // Mark replacement in replacements
                         replacementsFlag = 1;
@@ -444,7 +415,7 @@ void processScriptAiEscortTranslation(sqlite3* db, ordered_json& inputData, cons
                         std::ostringstream formattedCommand;
                         formattedCommand << std::fixed << std::setprecision(3);  // Set precision
                         formattedCommand << commandType << ", " << actorID << ", " << duration << ", "
-                            << newX << ", " << newY << ", " << z;
+                                         << newDestX << ", " << newDestY << ", " << destZ;
 
                         if (!resetValue.empty()) { // Add Reset if it exists
                             formattedCommand << ", " << resetValue;
@@ -478,7 +449,7 @@ void processScriptAiEscortTranslation(sqlite3* db, ordered_json& inputData, cons
 }
 
 // Function to process Dialogue AI Escort translation
-void processDialogueAiEscortTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice) {
+void processDialogueAiEscortTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice, std::ofstream& logFile) {
 
     // Regular expression to find AiEscort commands
     std::regex aiEscortRegex(R"((AiEscort)\s*,?\s*((?:\"[^\"]+\")|\S+)\s*,?\s*(\d+)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)(?:\s*,?\s*(\d+))?)",
@@ -499,31 +470,29 @@ void processDialogueAiEscortTranslation(sqlite3* db, ordered_json& inputData, co
                     std::string commandType = match[1].str();
                     std::string actorID = match[2].str();
                     std::string duration = match[3].str();
-                    double x = std::stod(match[4].str());
-                    double y = std::stod(match[5].str());
-                    double z = std::stod(match[6].str());
+                    double destX = std::stod(match[4].str());
+                    double destY = std::stod(match[5].str());
+                    double destZ = std::stod(match[6].str());
                     std::string resetValue = (match.size() > 7 && match[7].matched) ? match[7].str() : "";
 
                     // Round only the integer part for grid coordinates
-                    int gridX = static_cast<int>(std::floor(x / 8192.0));
-                    int gridY = static_cast<int>(std::floor(y / 8192.0));
+                    int gridX = static_cast<int>(std::floor(destX / 8192.0));
+                    int gridY = static_cast<int>(std::floor(destY / 8192.0));
 
                     // Check if coordinate is valid (in DB or customCoordinates)
-                    if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice)) {
+                    if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice, logFile)) {
                         int newGridX = gridX + offset.offsetX;
                         int newGridY = gridY + offset.offsetY;
 
-                        logMessage("Found Dialogue AI Escort translation: (" + std::to_string(gridX) + ", " +
-                            std::to_string(gridY) + ") -> (" + std::to_string(newGridX) + ", " +
-                            std::to_string(newGridY) + ")");
+                        logMessage("Found: Dialogue 'AI Escort' translation -> grid (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
+                                   ") | coordinates (" + std::to_string(destX) + ", " + std::to_string(destY) + ")", logFile);
 
                         // New calculation keeping the fractional part
-                        double newX = (newGridX * 8192.0) + (x - (gridX * 8192.0));
-                        double newY = (newGridY * 8192.0) + (y - (gridY * 8192.0));
+                        double newDestX = (newGridX * 8192.0) + (destX - (gridX * 8192.0));
+                        double newDestY = (newGridY * 8192.0) + (destY - (gridY * 8192.0));
 
-                        logMessage("Calculated new coordinates: (" + std::to_string(x) + ", " +
-                            std::to_string(y) + ") -> (" + std::to_string(newX) + ", " +
-                            std::to_string(newY) + ")");
+                        logMessage("Calculating: new destination ------------> grid (" + std::to_string(newGridX) + ", " + std::to_string(newGridY) +
+                                   ") | coordinates (" + std::to_string(newDestX) + ", " + std::to_string(newDestY) + ")", logFile);
 
                         // Mark replacement in replacements
                         replacementsFlag = 1;
@@ -532,7 +501,7 @@ void processDialogueAiEscortTranslation(sqlite3* db, ordered_json& inputData, co
                         std::ostringstream formattedCommand;
                         formattedCommand << std::fixed << std::setprecision(3);  // Set precision
                         formattedCommand << commandType << ", " << actorID << ", " << duration << ", "
-                            << newX << ", " << newY << ", " << z;
+                                         << newDestX << ", " << newDestY << ", " << destZ;
 
                         if (!resetValue.empty()) { // Add Reset if it exists
                             formattedCommand << ", " << resetValue;
@@ -561,7 +530,7 @@ void processDialogueAiEscortTranslation(sqlite3* db, ordered_json& inputData, co
 }
 
 // Function to process Script AI Escort Cell translation
-void processScriptAiEscortCellTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, std::vector<std::string>& updatedScriptIDs, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice) {
+void processScriptAiEscortCellTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, std::vector<std::string>& updatedScriptIDs, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice, std::ofstream& logFile) {
 
     // Regular expression to find AiEscortCell commands
     std::regex aiEscortCellRegex(R"((AiEscortCell)\s*,?\s*((?:\"[^\"]+\")|\S+)\s*,?\s*((?:\"[^\"]+\")|\S+)\s*,?\s*(\d+)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)(?:\s*,?\s*(\d+))?)",
@@ -585,31 +554,29 @@ void processScriptAiEscortCellTranslation(sqlite3* db, ordered_json& inputData, 
                     std::string actorID = match[2].str();
                     std::string cellID = match[3].str();
                     std::string duration = match[4].str();
-                    double x = std::stod(match[5].str());
-                    double y = std::stod(match[6].str());
-                    double z = std::stod(match[7].str());
+                    double destX = std::stod(match[5].str());
+                    double destY = std::stod(match[6].str());
+                    double destZ = std::stod(match[7].str());
                     std::string resetValue = (match.size() > 8 && match[8].matched) ? match[8].str() : "";
 
                     // Round only the integer part for grid coordinates
-                    int gridX = static_cast<int>(std::floor(x / 8192.0));
-                    int gridY = static_cast<int>(std::floor(y / 8192.0));
+                    int gridX = static_cast<int>(std::floor(destX / 8192.0));
+                    int gridY = static_cast<int>(std::floor(destY / 8192.0));
 
                     // Check if coordinate is valid (in DB or customCoordinates)
-                    if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice)) {
+                    if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice, logFile)) {
                         int newGridX = gridX + offset.offsetX;
                         int newGridY = gridY + offset.offsetY;
 
-                        logMessage("Found Script AI Escort Cell translation: (" + std::to_string(gridX) + ", " +
-                            std::to_string(gridY) + ") -> (" + std::to_string(newGridX) + ", " +
-                            std::to_string(newGridY) + ")");
+                        logMessage("Found: Script 'AI Escort Cell' translation -> grid (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
+                                   ") | coordinates (" + std::to_string(destX) + ", " + std::to_string(destY) + ")", logFile);
 
                         // New calculation keeping the fractional part
-                        double newX = (newGridX * 8192.0) + (x - (gridX * 8192.0));
-                        double newY = (newGridY * 8192.0) + (y - (gridY * 8192.0));
+                        double newDestX = (newGridX * 8192.0) + (destX - (gridX * 8192.0));
+                        double newDestY = (newGridY * 8192.0) + (destY - (gridY * 8192.0));
 
-                        logMessage("Calculated new coordinates: (" + std::to_string(x) + ", " +
-                            std::to_string(y) + ") -> (" + std::to_string(newX) + ", " +
-                            std::to_string(newY) + ")");
+                        logMessage("Calculating: new destination ---------------> grid (" + std::to_string(newGridX) + ", " + std::to_string(newGridY) +
+                                   ") | coordinates (" + std::to_string(newDestX) + ", " + std::to_string(newDestY) + ")", logFile);
 
                         // Mark replacement in replacements
                         replacementsFlag = 1;
@@ -619,7 +586,7 @@ void processScriptAiEscortCellTranslation(sqlite3* db, ordered_json& inputData, 
                         std::ostringstream formattedCommand;
                         formattedCommand << std::fixed << std::setprecision(3);  // Set precision
                         formattedCommand << commandType << ", " << actorID << ", " << cellID << ", " << duration << ", "
-                            << newX << ", " << newY << ", " << z;
+                                         << newDestX << ", " << newDestY << ", " << destZ;
 
                         if (!resetValue.empty()) { // Add Reset if it exists
                             formattedCommand << ", " << resetValue;
@@ -653,7 +620,7 @@ void processScriptAiEscortCellTranslation(sqlite3* db, ordered_json& inputData, 
 }
 
 // Function to process Dialogue AI Escort Cell translation
-void processDialogueAiEscortCellTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice) {
+void processDialogueAiEscortCellTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice, std::ofstream& logFile) {
 
     // Regular expression to find AiEscortCell commands
     std::regex aiEscortCellRegex(R"((AiEscortCell)\s*,?\s*((?:\"[^\"]+\")|\S+)\s*,?\s*((?:\"[^\"]+\")|\S+)\s*,?\s*(\d+)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)(?:\s*,?\s*(\d+))?)",
@@ -675,31 +642,29 @@ void processDialogueAiEscortCellTranslation(sqlite3* db, ordered_json& inputData
                     std::string actorID = match[2].str();
                     std::string cellID = match[3].str();
                     std::string duration = match[4].str();
-                    double x = std::stod(match[5].str());
-                    double y = std::stod(match[6].str());
-                    double z = std::stod(match[7].str());
+                    double destX = std::stod(match[5].str());
+                    double destY = std::stod(match[6].str());
+                    double destZ = std::stod(match[7].str());
                     std::string resetValue = (match.size() > 8 && match[8].matched) ? match[8].str() : "";
 
                     // Round only the integer part for grid coordinates
-                    int gridX = static_cast<int>(std::floor(x / 8192.0));
-                    int gridY = static_cast<int>(std::floor(y / 8192.0));
+                    int gridX = static_cast<int>(std::floor(destX / 8192.0));
+                    int gridY = static_cast<int>(std::floor(destY / 8192.0));
 
                     // Check if coordinate is valid (in DB or customCoordinates)
-                    if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice)) {
+                    if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice, logFile)) {
                         int newGridX = gridX + offset.offsetX;
                         int newGridY = gridY + offset.offsetY;
 
-                        logMessage("Found Dialogue AI Escort Cell translation: (" + std::to_string(gridX) + ", " +
-                            std::to_string(gridY) + ") -> (" + std::to_string(newGridX) + ", " +
-                            std::to_string(newGridY) + ")");
+                        logMessage("Found: Dialogue 'AI Escort Cell' translation -> grid (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
+                                   ") | coordinates (" + std::to_string(destX) + ", " + std::to_string(destY) + ")", logFile);
 
                         // New calculation keeping the fractional part
-                        double newX = (newGridX * 8192.0) + (x - (gridX * 8192.0));
-                        double newY = (newGridY * 8192.0) + (y - (gridY * 8192.0));
+                        double newDestX = (newGridX * 8192.0) + (destX - (gridX * 8192.0));
+                        double newDestY = (newGridY * 8192.0) + (destY - (gridY * 8192.0));
 
-                        logMessage("Calculated new coordinates: (" + std::to_string(x) + ", " +
-                            std::to_string(y) + ") -> (" + std::to_string(newX) + ", " +
-                            std::to_string(newY) + ")");
+                        logMessage("Calculating: new destination -----------------> grid (" + std::to_string(newGridX) + ", " + std::to_string(newGridY) +
+                                   ") | coordinates (" + std::to_string(newDestX) + ", " + std::to_string(newDestY) + ")", logFile);
 
                         // Mark replacement in replacements
                         replacementsFlag = 1;
@@ -708,7 +673,7 @@ void processDialogueAiEscortCellTranslation(sqlite3* db, ordered_json& inputData
                         std::ostringstream formattedCommand;
                         formattedCommand << std::fixed << std::setprecision(3);  // Set precision
                         formattedCommand << commandType << ", " << actorID << ", " << cellID << ", " << duration << ", "
-                            << newX << ", " << newY << ", " << z;
+                                         << newDestX << ", " << newDestY << ", " << destZ;
 
                         if (!resetValue.empty()) { // Add Reset if it exists
                             formattedCommand << ", " << resetValue;
@@ -737,7 +702,7 @@ void processDialogueAiEscortCellTranslation(sqlite3* db, ordered_json& inputData
 }
 
 // Function to process Script AI Follow translation
-void processScriptAiFollowTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, std::vector<std::string>& updatedScriptIDs, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice) {
+void processScriptAiFollowTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, std::vector<std::string>& updatedScriptIDs, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice, std::ofstream& logFile) {
 
     // Regular expression to find AiFollow commands
     std::regex aiFollowRegex(R"((AiFollow)\s*,?\s*((?:\"[^\"]+\")|\S+)\s*,?\s*(\d+)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)(?:\s*,?\s*(\d+))?)",
@@ -760,31 +725,29 @@ void processScriptAiFollowTranslation(sqlite3* db, ordered_json& inputData, cons
                     std::string commandType = match[1].str();
                     std::string actorID = match[2].str();
                     std::string duration = match[3].str();
-                    double x = std::stod(match[4].str());
-                    double y = std::stod(match[5].str());
-                    double z = std::stod(match[6].str());
+                    double destX = std::stod(match[4].str());
+                    double destY = std::stod(match[5].str());
+                    double destZ = std::stod(match[6].str());
                     std::string resetValue = (match.size() > 7 && match[7].matched) ? match[7].str() : "";
 
                     // Round only the integer part for grid coordinates
-                    int gridX = static_cast<int>(std::floor(x / 8192.0));
-                    int gridY = static_cast<int>(std::floor(y / 8192.0));
+                    int gridX = static_cast<int>(std::floor(destX / 8192.0));
+                    int gridY = static_cast<int>(std::floor(destY / 8192.0));
 
                     // Check if coordinate is valid (in DB or customCoordinates)
-                    if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice)) {
+                    if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice, logFile)) {
                         int newGridX = gridX + offset.offsetX;
                         int newGridY = gridY + offset.offsetY;
 
-                        logMessage("Found Script AI Follow translation: (" + std::to_string(gridX) + ", " +
-                            std::to_string(gridY) + ") -> (" + std::to_string(newGridX) + ", " +
-                            std::to_string(newGridY) + ")");
+                        logMessage("Found: Script 'AI Follow' translation -> grid (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
+                                   ") | coordinates (" + std::to_string(destX) + ", " + std::to_string(destY) + ")", logFile);
 
                         // New calculation keeping the fractional part
-                        double newX = (newGridX * 8192.0) + (x - (gridX * 8192.0));
-                        double newY = (newGridY * 8192.0) + (y - (gridY * 8192.0));
+                        double newDestX = (newGridX * 8192.0) + (destX - (gridX * 8192.0));
+                        double newDestY = (newGridY * 8192.0) + (destY - (gridY * 8192.0));
 
-                        logMessage("Calculated new coordinates: (" + std::to_string(x) + ", " +
-                            std::to_string(y) + ") -> (" + std::to_string(newX) + ", " +
-                            std::to_string(newY) + ")");
+                        logMessage("Calculating: new destination ----------> grid (" + std::to_string(newGridX) + ", " + std::to_string(newGridY) +
+                                   ") | coordinates (" + std::to_string(newDestX) + ", " + std::to_string(newDestY) + ")", logFile);
 
                         // Mark replacement in replacements
                         replacementsFlag = 1;
@@ -794,7 +757,7 @@ void processScriptAiFollowTranslation(sqlite3* db, ordered_json& inputData, cons
                         std::ostringstream formattedCommand;
                         formattedCommand << std::fixed << std::setprecision(3);  // Set precision
                         formattedCommand << commandType << ", " << actorID << ", " << duration << ", "
-                            << newX << ", " << newY << ", " << z;
+                                         << newDestX << ", " << newDestY << ", " << destZ;
 
                         if (!resetValue.empty()) { // Add Reset if it exists
                             formattedCommand << ", " << resetValue;
@@ -828,7 +791,7 @@ void processScriptAiFollowTranslation(sqlite3* db, ordered_json& inputData, cons
 }
 
 // Function to process Dialogue AI Follow translation
-void processDialogueAiFollowTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice) {
+void processDialogueAiFollowTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice, std::ofstream& logFile) {
 
     // Regular expression to find AiFollow commands
     std::regex aiFollowRegex(R"((AiFollow)\s*,?\s*((?:\"[^\"]+\")|\S+)\s*,?\s*(\d+)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)(?:\s*,?\s*(\d+))?)",
@@ -849,31 +812,29 @@ void processDialogueAiFollowTranslation(sqlite3* db, ordered_json& inputData, co
                     std::string commandType = match[1].str();
                     std::string actorID = match[2].str();
                     std::string duration = match[3].str();
-                    double x = std::stod(match[4].str());
-                    double y = std::stod(match[5].str());
-                    double z = std::stod(match[6].str());
+                    double destX = std::stod(match[4].str());
+                    double destY = std::stod(match[5].str());
+                    double destZ = std::stod(match[6].str());
                     std::string resetValue = (match.size() > 7 && match[7].matched) ? match[7].str() : "";
 
                     // Round only the integer part for grid coordinates
-                    int gridX = static_cast<int>(std::floor(x / 8192.0));
-                    int gridY = static_cast<int>(std::floor(y / 8192.0));
+                    int gridX = static_cast<int>(std::floor(destX / 8192.0));
+                    int gridY = static_cast<int>(std::floor(destY / 8192.0));
 
                     // Check if coordinate is valid (in DB or customCoordinates)
-                    if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice)) {
+                    if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice, logFile)) {
                         int newGridX = gridX + offset.offsetX;
                         int newGridY = gridY + offset.offsetY;
 
-                        logMessage("Found Dialogue AI Follow translation: (" + std::to_string(gridX) + ", " +
-                            std::to_string(gridY) + ") -> (" + std::to_string(newGridX) + ", " +
-                            std::to_string(newGridY) + ")");
+                        logMessage("Found: Dialogue 'AI Follow' translation -> grid (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
+                                   ") | coordinates (" + std::to_string(destX) + ", " + std::to_string(destY) + ")", logFile);
 
                         // New calculation keeping the fractional part
-                        double newX = (newGridX * 8192.0) + (x - (gridX * 8192.0));
-                        double newY = (newGridY * 8192.0) + (y - (gridY * 8192.0));
+                        double newDestX = (newGridX * 8192.0) + (destX - (gridX * 8192.0));
+                        double newDestY = (newGridY * 8192.0) + (destY - (gridY * 8192.0));
 
-                        logMessage("Calculated new coordinates: (" + std::to_string(x) + ", " +
-                            std::to_string(y) + ") -> (" + std::to_string(newX) + ", " +
-                            std::to_string(newY) + ")");
+                        logMessage("Calculating: new destination ------------> grid (" + std::to_string(newGridX) + ", " + std::to_string(newGridY) +
+                                   ") | coordinates (" + std::to_string(newDestX) + ", " + std::to_string(newDestY) + ")", logFile);
 
                         // Mark replacement in replacements
                         replacementsFlag = 1;
@@ -882,7 +843,7 @@ void processDialogueAiFollowTranslation(sqlite3* db, ordered_json& inputData, co
                         std::ostringstream formattedCommand;
                         formattedCommand << std::fixed << std::setprecision(3);  // Set precision
                         formattedCommand << commandType << ", " << actorID << ", " << duration << ", "
-                            << newX << ", " << newY << ", " << z;
+                                         << newDestX << ", " << newDestY << ", " << destZ;
 
                         if (!resetValue.empty()) { // Add Reset if it exists
                             formattedCommand << ", " << resetValue;
@@ -911,7 +872,7 @@ void processDialogueAiFollowTranslation(sqlite3* db, ordered_json& inputData, co
 }
 
 // Function to process Script AI Follow Cell translation
-void processScriptAiFollowCellTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, std::vector<std::string>& updatedScriptIDs, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice) {
+void processScriptAiFollowCellTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, std::vector<std::string>& updatedScriptIDs, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice, std::ofstream& logFile) {
 
     // Regular expression to find AiFollow commands
     std::regex aiFollowCellRegex(R"((AIFollowCell)\s*,?\s*((?:\"[^\"]+\")|\S+)\s*,?\s*((?:\"[^\"]+\")|\S+)\s*,?\s*(\d+)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)(?:\s*,?\s*(\d+))?)",
@@ -934,31 +895,29 @@ void processScriptAiFollowCellTranslation(sqlite3* db, ordered_json& inputData, 
                     std::string actorID = match[2].str();
                     std::string cellID = match[3].str();
                     std::string duration = match[4].str();
-                    double x = std::stod(match[5].str());
-                    double y = std::stod(match[6].str());
-                    double z = std::stod(match[7].str());
+                    double destX = std::stod(match[5].str());
+                    double destY = std::stod(match[6].str());
+                    double destZ = std::stod(match[7].str());
                     std::string resetValue = (match.size() > 8 && match[8].matched) ? match[8].str() : "";
 
                     // Round only the integer part for grid coordinates
-                    int gridX = static_cast<int>(std::floor(x / 8192.0));
-                    int gridY = static_cast<int>(std::floor(y / 8192.0));
+                    int gridX = static_cast<int>(std::floor(destX / 8192.0));
+                    int gridY = static_cast<int>(std::floor(destY / 8192.0));
 
                     // Check if coordinate is valid (in DB or customCoordinates)
-                    if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice)) {
+                    if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice, logFile)) {
                         int newGridX = gridX + offset.offsetX;
                         int newGridY = gridY + offset.offsetY;
 
-                        logMessage("Found Script AI Follow Cell translation: (" + std::to_string(gridX) + ", " +
-                            std::to_string(gridY) + ") -> (" + std::to_string(newGridX) + ", " +
-                            std::to_string(newGridY) + ")");
+                        logMessage("Found: Script 'AI Follow Cell' translation -> grid (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
+                                   ") | coordinates (" + std::to_string(destX) + ", " + std::to_string(destY) + ")", logFile);
 
                         // New calculation keeping the fractional part
-                        double newX = (newGridX * 8192.0) + (x - (gridX * 8192.0));
-                        double newY = (newGridY * 8192.0) + (y - (gridY * 8192.0));
+                        double newDestX = (newGridX * 8192.0) + (destX - (gridX * 8192.0));
+                        double newDestY = (newGridY * 8192.0) + (destY - (gridY * 8192.0));
 
-                        logMessage("Calculated new coordinates: (" + std::to_string(x) + ", " +
-                            std::to_string(y) + ") -> (" + std::to_string(newX) + ", " +
-                            std::to_string(newY) + ")");
+                        logMessage("Calculating: new destination ---------------> grid (" + std::to_string(newGridX) + ", " + std::to_string(newGridY) +
+                                   ") | coordinates (" + std::to_string(newDestX) + ", " + std::to_string(newDestY) + ")", logFile);
 
                         // Mark replacement in replacements
                         replacementsFlag = 1;
@@ -968,7 +927,7 @@ void processScriptAiFollowCellTranslation(sqlite3* db, ordered_json& inputData, 
                         std::ostringstream formattedCommand;
                         formattedCommand << std::fixed << std::setprecision(3);  // Set precision
                         formattedCommand << commandType << ", " << actorID << ", " << cellID << ", " << duration << ", "
-                            << newX << ", " << newY << ", " << z;
+                                         << newDestX << ", " << newDestY << ", " << destZ;
 
                         if (!resetValue.empty()) { // Add Reset if it exists
                             formattedCommand << ", " << resetValue;
@@ -1002,7 +961,7 @@ void processScriptAiFollowCellTranslation(sqlite3* db, ordered_json& inputData, 
 }
 
 // Function to process Dialogue AI Follow Cell translation
-void processDialogueAiFollowCellTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice) {
+void processDialogueAiFollowCellTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice, std::ofstream& logFile) {
 
     // Regular expression to find AiFollow commands
     std::regex aiFollowCellRegex(R"((AIFollowCell)\s*,?\s*((?:\"[^\"]+\")|\S+)\s*,?\s*((?:\"[^\"]+\")|\S+)\s*,?\s*(\d+)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)(?:\s*,?\s*(\d+))?)",
@@ -1024,31 +983,29 @@ void processDialogueAiFollowCellTranslation(sqlite3* db, ordered_json& inputData
                     std::string actorID = match[2].str();
                     std::string cellID = match[3].str();
                     std::string duration = match[4].str();
-                    double x = std::stod(match[5].str());
-                    double y = std::stod(match[6].str());
-                    double z = std::stod(match[7].str());
+                    double destX = std::stod(match[5].str());
+                    double destY = std::stod(match[6].str());
+                    double destZ = std::stod(match[7].str());
                     std::string resetValue = (match.size() > 8 && match[8].matched) ? match[8].str() : "";
 
                     // Round only the integer part for grid coordinates
-                    int gridX = static_cast<int>(std::floor(x / 8192.0));
-                    int gridY = static_cast<int>(std::floor(y / 8192.0));
+                    int gridX = static_cast<int>(std::floor(destX / 8192.0));
+                    int gridY = static_cast<int>(std::floor(destY / 8192.0));
 
                     // Check if coordinate is valid (in DB or customCoordinates)
-                    if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice)) {
+                    if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice, logFile)) {
                         int newGridX = gridX + offset.offsetX;
                         int newGridY = gridY + offset.offsetY;
 
-                        logMessage("Found Dialogue AI Follow translation: (" + std::to_string(gridX) + ", " +
-                            std::to_string(gridY) + ") -> (" + std::to_string(newGridX) + ", " +
-                            std::to_string(newGridY) + ")");
+                        logMessage("Found: Dialogue 'AI Follow Cell' translation -> grid (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
+                                   ") | coordinates (" + std::to_string(destX) + ", " + std::to_string(destY) + ")", logFile);
 
                         // New calculation keeping the fractional part
-                        double newX = (newGridX * 8192.0) + (x - (gridX * 8192.0));
-                        double newY = (newGridY * 8192.0) + (y - (gridY * 8192.0));
+                        double newDestX = (newGridX * 8192.0) + (destX - (gridX * 8192.0));
+                        double newDestY = (newGridY * 8192.0) + (destY - (gridY * 8192.0));
 
-                        logMessage("Calculated new coordinates: (" + std::to_string(x) + ", " +
-                            std::to_string(y) + ") -> (" + std::to_string(newX) + ", " +
-                            std::to_string(newY) + ")");
+                        logMessage("Calculating: new destination -----------------> grid (" + std::to_string(newGridX) + ", " + std::to_string(newGridY) +
+                                   ") | coordinates (" + std::to_string(newDestX) + ", " + std::to_string(newDestY) + ")", logFile);
 
                         // Mark replacement in replacements
                         replacementsFlag = 1;
@@ -1057,7 +1014,7 @@ void processDialogueAiFollowCellTranslation(sqlite3* db, ordered_json& inputData
                         std::ostringstream formattedCommand;
                         formattedCommand << std::fixed << std::setprecision(3);  // Set precision
                         formattedCommand << commandType << ", " << actorID << ", " << cellID << ", " << duration << ", "
-                            << newX << ", " << newY << ", " << z;
+                                         << newDestX << ", " << newDestY << ", " << destZ;
 
                         if (!resetValue.empty()) { // Add Reset if it exists
                             formattedCommand << ", " << resetValue;
@@ -1086,7 +1043,7 @@ void processDialogueAiFollowCellTranslation(sqlite3* db, ordered_json& inputData
 }
 
 // Function to process Script AI Travel translation
-void processScriptAiTravelTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, std::vector<std::string>& updatedScriptIDs, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice) {
+void processScriptAiTravelTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, std::vector<std::string>& updatedScriptIDs, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice, std::ofstream& logFile) {
 
     // Regular expression to find AiTravel commands
     std::regex aiTravelRegex(R"((AiTravel)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)(?:\s*,?\s*(\d+))?)",
@@ -1107,31 +1064,29 @@ void processScriptAiTravelTranslation(sqlite3* db, ordered_json& inputData, cons
 
                 while (std::regex_search(searchStart, scriptText.cend(), match, aiTravelRegex)) {
                     std::string commandType = match[1].str();
-                    double x = std::stod(match[2].str());
-                    double y = std::stod(match[3].str());
-                    double z = std::stod(match[4].str());
+                    double destX = std::stod(match[2].str());
+                    double destY = std::stod(match[3].str());
+                    double destZ = std::stod(match[4].str());
                     std::string resetValue = (match.size() > 5 && match[5].matched) ? match[5].str() : "";
 
                     // Round only the integer part for grid coordinates
-                    int gridX = static_cast<int>(std::floor(x / 8192.0));
-                    int gridY = static_cast<int>(std::floor(y / 8192.0));
+                    int gridX = static_cast<int>(std::floor(destX / 8192.0));
+                    int gridY = static_cast<int>(std::floor(destY / 8192.0));
 
                     // Check if coordinate is valid (in DB or customCoordinates)
-                    if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice)) {
+                    if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice, logFile)) {
                         int newGridX = gridX + offset.offsetX;
                         int newGridY = gridY + offset.offsetY;
 
-                        logMessage("Found Script AI Travel translation: (" + std::to_string(gridX) + ", " +
-                            std::to_string(gridY) + ") -> (" + std::to_string(newGridX) + ", " +
-                            std::to_string(newGridY) + ")");
+                        logMessage("Found: Script 'AI Travel' translation -> grid (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
+                                   ") | coordinates (" + std::to_string(destX) + ", " + std::to_string(destY) + ")", logFile);
 
                         // New calculation keeping the fractional part
-                        double newX = (newGridX * 8192.0) + (x - (gridX * 8192.0));
-                        double newY = (newGridY * 8192.0) + (y - (gridY * 8192.0));
+                        double newDestX = (newGridX * 8192.0) + (destX - (gridX * 8192.0));
+                        double newDestY = (newGridY * 8192.0) + (destY - (gridY * 8192.0));
 
-                        logMessage("Calculated new coordinates: (" + std::to_string(x) + ", " +
-                            std::to_string(y) + ") -> (" + std::to_string(newX) + ", " +
-                            std::to_string(newY) + ")");
+                        logMessage("Calculating: new destination ----------> grid (" + std::to_string(newGridX) + ", " + std::to_string(newGridY) +
+                                   ") | coordinates (" + std::to_string(newDestX) + ", " + std::to_string(newDestY) + ")", logFile);
 
                         // Mark replacement in replacements
                         replacementsFlag = 1;
@@ -1140,7 +1095,7 @@ void processScriptAiTravelTranslation(sqlite3* db, ordered_json& inputData, cons
                         // Form the updated command string
                         std::ostringstream formattedCommand;
                         formattedCommand << std::fixed << std::setprecision(3);  // Set precision
-                        formattedCommand << commandType << ", " << newX << ", " << newY << ", " << z;
+                        formattedCommand << commandType << ", " << newDestX << ", " << newDestY << ", " << destZ;
 
                         if (!resetValue.empty()) { // Add Reset if it exists
                             formattedCommand << ", " << resetValue;
@@ -1174,7 +1129,7 @@ void processScriptAiTravelTranslation(sqlite3* db, ordered_json& inputData, cons
 }
 
 // Function to process Dialogue AI Travel translation
-void processDialogueAiTravelTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice) {
+void processDialogueAiTravelTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice, std::ofstream& logFile) {
 
     // Regular expression to find AiTravel commands
     std::regex aiTravelRegex(R"((AiTravel)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)(?:\s*,?\s*(\d+))?)",
@@ -1193,31 +1148,29 @@ void processDialogueAiTravelTranslation(sqlite3* db, ordered_json& inputData, co
 
                 while (std::regex_search(searchStart, scriptText.cend(), match, aiTravelRegex)) {
                     std::string commandType = match[1].str();
-                    double x = std::stod(match[2].str());
-                    double y = std::stod(match[3].str());
-                    double z = std::stod(match[4].str());
+                    double destX = std::stod(match[2].str());
+                    double destY = std::stod(match[3].str());
+                    double destZ = std::stod(match[4].str());
                     std::string resetValue = (match.size() > 5 && match[5].matched) ? match[5].str() : "";
 
                     // Round only the integer part for grid coordinates
-                    int gridX = static_cast<int>(std::floor(x / 8192.0));
-                    int gridY = static_cast<int>(std::floor(y / 8192.0));
+                    int gridX = static_cast<int>(std::floor(destX / 8192.0));
+                    int gridY = static_cast<int>(std::floor(destY / 8192.0));
 
                     // Check if coordinate is valid (in DB or customCoordinates)
-                    if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice)) {
+                    if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice, logFile)) {
                         int newGridX = gridX + offset.offsetX;
                         int newGridY = gridY + offset.offsetY;
 
-                        logMessage("Found Dialogue AI Travel translation: (" + std::to_string(gridX) + ", " +
-                            std::to_string(gridY) + ") -> (" + std::to_string(newGridX) + ", " +
-                            std::to_string(newGridY) + ")");
+                        logMessage("Found: Dialogue 'AI Travel' translation -> grid (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
+                                   ") | coordinates (" + std::to_string(destX) + ", " + std::to_string(destY) + ")", logFile);
 
                         // New calculation keeping the fractional part
-                        double newX = (newGridX * 8192.0) + (x - (gridX * 8192.0));
-                        double newY = (newGridY * 8192.0) + (y - (gridY * 8192.0));
+                        double newDestX = (newGridX * 8192.0) + (destX - (gridX * 8192.0));
+                        double newDestY = (newGridY * 8192.0) + (destY - (gridY * 8192.0));
 
-                        logMessage("Calculated new coordinates: (" + std::to_string(x) + ", " +
-                            std::to_string(y) + ") -> (" + std::to_string(newX) + ", " +
-                            std::to_string(newY) + ")");
+                        logMessage("Calculating: new destination ------------> grid (" + std::to_string(newGridX) + ", " + std::to_string(newGridY) +
+                                   ") | coordinates (" + std::to_string(newDestX) + ", " + std::to_string(newDestY) + ")", logFile);
 
                         // Mark replacement in replacements
                         replacementsFlag = 1;
@@ -1225,7 +1178,7 @@ void processDialogueAiTravelTranslation(sqlite3* db, ordered_json& inputData, co
                         // Form the updated command string
                         std::ostringstream formattedCommand;
                         formattedCommand << std::fixed << std::setprecision(3);
-                        formattedCommand << commandType << ", " << newX << ", " << newY << ", " << z;
+                        formattedCommand << commandType << ", " << newDestX << ", " << newDestY << ", " << destZ;
 
                         if (!resetValue.empty()) {
                             formattedCommand << ", " << resetValue;
@@ -1250,7 +1203,7 @@ void processDialogueAiTravelTranslation(sqlite3* db, ordered_json& inputData, co
 }
 
 // Function to process Script Position translation
-void processScriptPositionTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, std::vector<std::string>& updatedScriptIDs, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice) {
+void processScriptPositionTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, std::vector<std::string>& updatedScriptIDs, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice, std::ofstream& logFile) {
 
     // Regular expression to find Position commands
     std::regex positionRegex(R"((Position)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?))",
@@ -1271,31 +1224,29 @@ void processScriptPositionTranslation(sqlite3* db, ordered_json& inputData, cons
 
                 while (std::regex_search(searchStart, scriptText.cend(), match, positionRegex)) {
                     std::string commandType = match[1].str();
-                    double x = std::stod(match[2].str());
-                    double y = std::stod(match[3].str());
-                    double z = std::stod(match[4].str());
+                    double destX = std::stod(match[2].str());
+                    double destY = std::stod(match[3].str());
+                    double destZ = std::stod(match[4].str());
                     double zRot = std::stod(match[5].str());
 
                     // Round only the integer part for grid coordinates
-                    int gridX = static_cast<int>(std::floor(x / 8192.0));
-                    int gridY = static_cast<int>(std::floor(y / 8192.0));
+                    int gridX = static_cast<int>(std::floor(destX / 8192.0));
+                    int gridY = static_cast<int>(std::floor(destY / 8192.0));
 
                     // Check if coordinate is valid (in DB or customCoordinates)
-                    if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice)) {
+                    if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice, logFile)) {
                         int newGridX = gridX + offset.offsetX;
                         int newGridY = gridY + offset.offsetY;
 
-                        logMessage("Found Script Position translation: (" + std::to_string(gridX) + ", " +
-                            std::to_string(gridY) + ") -> (" + std::to_string(newGridX) + ", " +
-                            std::to_string(newGridY) + ")");
+                        logMessage("Found: Script 'Position' translation -> grid (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
+                                   ") | coordinates (" + std::to_string(destX) + ", " + std::to_string(destY) + ")", logFile);
 
                         // New calculation keeping the fractional part
-                        double newX = (newGridX * 8192.0) + (x - (gridX * 8192.0));
-                        double newY = (newGridY * 8192.0) + (y - (gridY * 8192.0));
+                        double newDestX = (newGridX * 8192.0) + (destX - (gridX * 8192.0));
+                        double newDestY = (newGridY * 8192.0) + (destY - (gridY * 8192.0));
 
-                        logMessage("Calculated new coordinates: (" + std::to_string(x) + ", " +
-                            std::to_string(y) + ") -> (" + std::to_string(newX) + ", " +
-                            std::to_string(newY) + ")");
+                        logMessage("Calculating: new destination ---------> grid (" + std::to_string(newGridX) + ", " + std::to_string(newGridY) +
+                                   ") | coordinates (" + std::to_string(newDestX) + ", " + std::to_string(newDestY) + ")", logFile);
 
                         // Mark replacement in replacements
                         replacementsFlag = 1;
@@ -1304,7 +1255,7 @@ void processScriptPositionTranslation(sqlite3* db, ordered_json& inputData, cons
                         // Form the updated command string
                         std::ostringstream formattedCommand;
                         formattedCommand << std::fixed << std::setprecision(3);
-                        formattedCommand << commandType << ", " << newX << ", " << newY << ", " << z;
+                        formattedCommand << commandType << ", " << newDestX << ", " << newDestY << ", " << destZ;
                         formattedCommand << ", " << std::fixed << std::setprecision(0) << zRot;
 
                         updatedText += scriptText.substr(searchStart - scriptText.cbegin(), match.position()) +
@@ -1335,7 +1286,7 @@ void processScriptPositionTranslation(sqlite3* db, ordered_json& inputData, cons
 }
 
 // Function to process Dialogue Position translation
-void processDialoguePositionTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice) {
+void processDialoguePositionTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice, std::ofstream& logFile) {
 
     // Regular expression to find Position commands
     std::regex positionRegex(R"((Position)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?))",
@@ -1354,31 +1305,29 @@ void processDialoguePositionTranslation(sqlite3* db, ordered_json& inputData, co
 
                 while (std::regex_search(searchStart, scriptText.cend(), match, positionRegex)) {
                     std::string commandType = match[1].str();
-                    double x = std::stod(match[2].str());
-                    double y = std::stod(match[3].str());
-                    double z = std::stod(match[4].str());
+                    double destX = std::stod(match[2].str());
+                    double destY = std::stod(match[3].str());
+                    double destZ = std::stod(match[4].str());
                     double zRot = std::stod(match[5].str());
 
                     // Round only the integer part for grid coordinates
-                    int gridX = static_cast<int>(std::floor(x / 8192.0));
-                    int gridY = static_cast<int>(std::floor(y / 8192.0));
+                    int gridX = static_cast<int>(std::floor(destX / 8192.0));
+                    int gridY = static_cast<int>(std::floor(destY / 8192.0));
 
                     // Check if coordinate is valid (in DB or customCoordinates)
-                    if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice)) {
+                    if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice, logFile)) {
                         int newGridX = gridX + offset.offsetX;
                         int newGridY = gridY + offset.offsetY;
 
-                        logMessage("Found Dialogue Position translation: (" + std::to_string(gridX) + ", " +
-                            std::to_string(gridY) + ") -> (" + std::to_string(newGridX) + ", " +
-                            std::to_string(newGridY) + ")");
+                        logMessage("Found: Dialogue 'Position' translation -> grid (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
+                                   ") | coordinates (" + std::to_string(destX) + ", " + std::to_string(destY) + ")", logFile);
 
                         // New calculation keeping the fractional part
-                        double newX = (newGridX * 8192.0) + (x - (gridX * 8192.0));
-                        double newY = (newGridY * 8192.0) + (y - (gridY * 8192.0));
+                        double newDestX = (newGridX * 8192.0) + (destX - (gridX * 8192.0));
+                        double newDestY = (newGridY * 8192.0) + (destY - (gridY * 8192.0));
 
-                        logMessage("Calculated new coordinates: (" + std::to_string(x) + ", " +
-                            std::to_string(y) + ") -> (" + std::to_string(newX) + ", " +
-                            std::to_string(newY) + ")");
+                        logMessage("Calculating: new destination -----------> grid (" + std::to_string(newGridX) + ", " + std::to_string(newGridY) +
+                                   ") | coordinates (" + std::to_string(newDestX) + ", " + std::to_string(newDestY) + ")", logFile);
 
                         // Mark replacement in replacements
                         replacementsFlag = 1;
@@ -1386,7 +1335,7 @@ void processDialoguePositionTranslation(sqlite3* db, ordered_json& inputData, co
                         // Form the updated command string
                         std::ostringstream formattedCommand;
                         formattedCommand << std::fixed << std::setprecision(3);
-                        formattedCommand << commandType << ", " << newX << ", " << newY << ", " << z;
+                        formattedCommand << commandType << ", " << newDestX << ", " << newDestY << ", " << destZ;
                         formattedCommand << ", " << std::fixed << std::setprecision(0) << zRot;
 
                         updatedText += scriptText.substr(searchStart - scriptText.cbegin(), match.position()) +
@@ -1408,7 +1357,7 @@ void processDialoguePositionTranslation(sqlite3* db, ordered_json& inputData, co
 }
 
 // Function to process Script PositionCell translation
-void processScriptPositionCellTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, std::vector<std::string>& updatedScriptIDs, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice) {
+void processScriptPositionCellTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, std::vector<std::string>& updatedScriptIDs, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice, std::ofstream& logFile) {
 
     // Regular expression to find PositionCell commands
     std::regex positionCellRegex(R"((PositionCell)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*((?:\"[^\"]+\")|\S+))",
@@ -1429,32 +1378,30 @@ void processScriptPositionCellTranslation(sqlite3* db, ordered_json& inputData, 
 
                 while (std::regex_search(searchStart, scriptText.cend(), match, positionCellRegex)) {
                     std::string commandType = match[1].str();
-                    double x = std::stod(match[2].str());
-                    double y = std::stod(match[3].str());
-                    double z = std::stod(match[4].str());
+                    double destX = std::stod(match[2].str());
+                    double destY = std::stod(match[3].str());
+                    double destZ = std::stod(match[4].str());
                     double zRot = std::stod(match[5].str());
                     std::string cellID = match[6].str();  // Cell name (with escaped quotes)
 
                     // Round only the integer part for grid coordinates
-                    int gridX = static_cast<int>(std::floor(x / 8192.0));
-                    int gridY = static_cast<int>(std::floor(y / 8192.0));
+                    int gridX = static_cast<int>(std::floor(destX / 8192.0));
+                    int gridY = static_cast<int>(std::floor(destY / 8192.0));
 
                     // Check if coordinate is valid (in DB or customCoordinates)
-                    if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice)) {
+                    if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice, logFile)) {
                         int newGridX = gridX + offset.offsetX;
                         int newGridY = gridY + offset.offsetY;
 
-                        logMessage("Found Script PositionCell translation: (" + std::to_string(gridX) + ", " +
-                            std::to_string(gridY) + ") -> (" + std::to_string(newGridX) + ", " +
-                            std::to_string(newGridY) + ")");
+                        logMessage("Found: Script 'Position Cell' translation -> grid (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
+                                   ") | coordinates (" + std::to_string(destX) + ", " + std::to_string(destY) + ")", logFile);
 
                         // New calculation keeping the fractional part
-                        double newX = (newGridX * 8192.0) + (x - (gridX * 8192.0));
-                        double newY = (newGridY * 8192.0) + (y - (gridY * 8192.0));
+                        double newDestX = (newGridX * 8192.0) + (destX - (gridX * 8192.0));
+                        double newDestY = (newGridY * 8192.0) + (destY - (gridY * 8192.0));
 
-                        logMessage("Calculated new coordinates: (" + std::to_string(x) + ", " +
-                            std::to_string(y) + ") -> (" + std::to_string(newX) + ", " +
-                            std::to_string(newY) + ")");
+                        logMessage("Calculating: new destination --------------> grid (" + std::to_string(newGridX) + ", " + std::to_string(newGridY) +
+                                   ") | coordinates (" + std::to_string(newDestX) + ", " + std::to_string(newDestY) + ")", logFile);
 
                         // Mark replacement in replacements
                         replacementsFlag = 1;
@@ -1463,7 +1410,7 @@ void processScriptPositionCellTranslation(sqlite3* db, ordered_json& inputData, 
                         // Form the updated command string
                         std::ostringstream formattedCommand;
                         formattedCommand << std::fixed << std::setprecision(3);
-                        formattedCommand << commandType << ", " << newX << ", " << newY << ", " << z;
+                        formattedCommand << commandType << ", " << newDestX << ", " << newDestY << ", " << destZ;
                         formattedCommand << ", " << std::fixed << std::setprecision(0) << zRot;
                         formattedCommand << ", " << cellID;
 
@@ -1495,7 +1442,7 @@ void processScriptPositionCellTranslation(sqlite3* db, ordered_json& inputData, 
 }
 
 // Function to process Dialogue PositionCell translation
-void processDialoguePositionCellTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice) {
+void processDialoguePositionCellTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice, std::ofstream& logFile) {
 
     // Regular expression to find PositionCell commands
     std::regex positionCellRegex(R"((PositionCell)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*((?:\"[^\"]+\")|\S+))",
@@ -1514,32 +1461,30 @@ void processDialoguePositionCellTranslation(sqlite3* db, ordered_json& inputData
 
                 while (std::regex_search(searchStart, scriptText.cend(), match, positionCellRegex)) {
                     std::string commandType = match[1].str();
-                    double x = std::stod(match[2].str());
-                    double y = std::stod(match[3].str());
-                    double z = std::stod(match[4].str());
+                    double destX = std::stod(match[2].str());
+                    double destY = std::stod(match[3].str());
+                    double destZ = std::stod(match[4].str());
                     double zRot = std::stod(match[5].str());
                     std::string cellID = match[6].str();  // Cell name (with escaped quotes)
 
                     // Round only the integer part for grid coordinates
-                    int gridX = static_cast<int>(std::floor(x / 8192.0));
-                    int gridY = static_cast<int>(std::floor(y / 8192.0));
+                    int gridX = static_cast<int>(std::floor(destX / 8192.0));
+                    int gridY = static_cast<int>(std::floor(destY / 8192.0));
 
                     // Check if coordinate is valid (in DB or customCoordinates)
-                    if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice)) {
+                    if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice, logFile)) {
                         int newGridX = gridX + offset.offsetX;
                         int newGridY = gridY + offset.offsetY;
 
-                        logMessage("Found Dialogue PositionCell translation: (" + std::to_string(gridX) + ", " +
-                            std::to_string(gridY) + ") -> (" + std::to_string(newGridX) + ", " +
-                            std::to_string(newGridY) + ")");
+                        logMessage("Found: Dialogue 'Position Cell' translation -> grid (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
+                                   ") | coordinates (" + std::to_string(destX) + ", " + std::to_string(destY) + ")", logFile);
 
                         // New calculation keeping the fractional part
-                        double newX = (newGridX * 8192.0) + (x - (gridX * 8192.0));
-                        double newY = (newGridY * 8192.0) + (y - (gridY * 8192.0));
+                        double newDestX = (newGridX * 8192.0) + (destX - (gridX * 8192.0));
+                        double newDestY = (newGridY * 8192.0) + (destY - (gridY * 8192.0));
 
-                        logMessage("Calculated new coordinates: (" + std::to_string(x) + ", " +
-                            std::to_string(y) + ") -> (" + std::to_string(newX) + ", " +
-                            std::to_string(newY) + ")");
+                        logMessage("Calculating: new destination ----------------> grid (" + std::to_string(newGridX) + ", " + std::to_string(newGridY) +
+                                   ") | coordinates (" + std::to_string(newDestX) + ", " + std::to_string(newDestY) + ")", logFile);
 
                         // Mark replacement in replacements
                         replacementsFlag = 1;
@@ -1547,7 +1492,7 @@ void processDialoguePositionCellTranslation(sqlite3* db, ordered_json& inputData
                         // Form the updated command string
                         std::ostringstream formattedCommand;
                         formattedCommand << std::fixed << std::setprecision(3);
-                        formattedCommand << commandType << ", " << newX << ", " << newY << ", " << z;
+                        formattedCommand << commandType << ", " << newDestX << ", " << newDestY << ", " << destZ;
                         formattedCommand << ", " << std::fixed << std::setprecision(0) << zRot;
                         formattedCommand << ", " << cellID;
 
@@ -1574,7 +1519,7 @@ void processDialoguePositionCellTranslation(sqlite3* db, ordered_json& inputData
 }
 
 // Function to process Script PlaceItem translation
-void processScriptPlaceItemTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, std::vector<std::string>& updatedScriptIDs, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice) {
+void processScriptPlaceItemTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, std::vector<std::string>& updatedScriptIDs, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice, std::ofstream& logFile) {
 
     // Regular expression to find PlaceItem commands
     std::regex placeItemRegex(R"((PlaceItem)\s*,?\s*((?:\"[^\"]+\")|\S+)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?))",
@@ -1596,31 +1541,29 @@ void processScriptPlaceItemTranslation(sqlite3* db, ordered_json& inputData, con
                 while (std::regex_search(searchStart, scriptText.cend(), match, placeItemRegex)) {
                     std::string commandType = match[1].str();
                     std::string objectID = match[2].str();
-                    double x = std::stod(match[3].str());
-                    double y = std::stod(match[4].str());
-                    double z = std::stod(match[5].str());
+                    double destX = std::stod(match[3].str());
+                    double destY = std::stod(match[4].str());
+                    double destZ = std::stod(match[5].str());
                     double zRot = std::stod(match[6].str());
 
                     // Round only the integer part for grid coordinates
-                    int gridX = static_cast<int>(std::floor(x / 8192.0));
-                    int gridY = static_cast<int>(std::floor(y / 8192.0));
+                    int gridX = static_cast<int>(std::floor(destX / 8192.0));
+                    int gridY = static_cast<int>(std::floor(destY / 8192.0));
 
                     // Check if coordinate is valid (in DB or customCoordinates)
-                    if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice)) {
+                    if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice, logFile)) {
                         int newGridX = gridX + offset.offsetX;
                         int newGridY = gridY + offset.offsetY;
 
-                        logMessage("Found Script PlaceItem translation: (" + std::to_string(gridX) + ", " +
-                            std::to_string(gridY) + ") -> (" + std::to_string(newGridX) + ", " +
-                            std::to_string(newGridY) + ")");
+                        logMessage("Found: Script 'Place Item' translation -> grid (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
+                                   ") | coordinates (" + std::to_string(destX) + ", " + std::to_string(destY) + ")", logFile);
 
                         // New calculation keeping the fractional part
-                        double newX = (newGridX * 8192.0) + (x - (gridX * 8192.0));
-                        double newY = (newGridY * 8192.0) + (y - (gridY * 8192.0));
+                        double newDestX = (newGridX * 8192.0) + (destX - (gridX * 8192.0));
+                        double newDestY = (newGridY * 8192.0) + (destY - (gridY * 8192.0));
 
-                        logMessage("Calculated new coordinates: (" + std::to_string(x) + ", " +
-                            std::to_string(y) + ") -> (" + std::to_string(newX) + ", " +
-                            std::to_string(newY) + ")");
+                        logMessage("Calculating: new destination -----------> grid (" + std::to_string(newGridX) + ", " + std::to_string(newGridY) +
+                                   ") | coordinates (" + std::to_string(newDestX) + ", " + std::to_string(newDestY) + ")", logFile);
 
                         // Mark replacement in replacements
                         replacementsFlag = 1;
@@ -1629,7 +1572,7 @@ void processScriptPlaceItemTranslation(sqlite3* db, ordered_json& inputData, con
                         // Form the updated command string
                         std::ostringstream formattedCommand;
                         formattedCommand << std::fixed << std::setprecision(3);
-                        formattedCommand << commandType << ", " << objectID << ", " << newX << ", " << newY << ", " << z;
+                        formattedCommand << commandType << ", " << objectID << ", " << newDestX << ", " << newDestY << ", " << destZ;
                         formattedCommand << ", " << std::fixed << std::setprecision(0) << zRot;
 
                         updatedText += scriptText.substr(searchStart - scriptText.cbegin(), match.position()) +
@@ -1660,7 +1603,7 @@ void processScriptPlaceItemTranslation(sqlite3* db, ordered_json& inputData, con
 }
 
 // Function to process Dialogue PlaceItem translation
-void processDialoguePlaceItemTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice) {
+void processDialoguePlaceItemTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice, std::ofstream& logFile) {
 
     // Regular expression to find PlaceItem commands
     std::regex placeItemRegex(R"((PlaceItem)\s*,?\s*((?:\"[^\"]+\")|\S+)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?))",
@@ -1680,31 +1623,29 @@ void processDialoguePlaceItemTranslation(sqlite3* db, ordered_json& inputData, c
                 while (std::regex_search(searchStart, scriptText.cend(), match, placeItemRegex)) {
                     std::string commandType = match[1].str();
                     std::string objectID = match[2].str();
-                    double x = std::stod(match[3].str());
-                    double y = std::stod(match[4].str());
-                    double z = std::stod(match[5].str());
+                    double destX = std::stod(match[3].str());
+                    double destY = std::stod(match[4].str());
+                    double destZ = std::stod(match[5].str());
                     double zRot = std::stod(match[6].str());
 
                     // Round only the integer part for grid coordinates
-                    int gridX = static_cast<int>(std::floor(x / 8192.0));
-                    int gridY = static_cast<int>(std::floor(y / 8192.0));
+                    int gridX = static_cast<int>(std::floor(destX / 8192.0));
+                    int gridY = static_cast<int>(std::floor(destY / 8192.0));
 
                     // Check if coordinate is valid (in DB or customCoordinates)
-                    if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice)) {
+                    if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice, logFile)) {
                         int newGridX = gridX + offset.offsetX;
                         int newGridY = gridY + offset.offsetY;
 
-                        logMessage("Found Dialogue PlaceItem translation: (" + std::to_string(gridX) + ", " +
-                            std::to_string(gridY) + ") -> (" + std::to_string(newGridX) + ", " +
-                            std::to_string(newGridY) + ")");
+                        logMessage("Found: Dialogue 'Place Item' translation -> grid (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
+                                   ") | coordinates (" + std::to_string(destX) + ", " + std::to_string(destY) + ")", logFile);
 
                         // New calculation keeping the fractional part
-                        double newX = (newGridX * 8192.0) + (x - (gridX * 8192.0));
-                        double newY = (newGridY * 8192.0) + (y - (gridY * 8192.0));
+                        double newDestX = (newGridX * 8192.0) + (destX - (gridX * 8192.0));
+                        double newDestY = (newGridY * 8192.0) + (destY - (gridY * 8192.0));
 
-                        logMessage("Calculated new coordinates: (" + std::to_string(x) + ", " +
-                            std::to_string(y) + ") -> (" + std::to_string(newX) + ", " +
-                            std::to_string(newY) + ")");
+                        logMessage("Calculating: new destination -------------> grid (" + std::to_string(newGridX) + ", " + std::to_string(newGridY) +
+                                   ") | coordinates (" + std::to_string(newDestX) + ", " + std::to_string(newDestY) + ")", logFile);
 
                         // Mark replacement in replacements
                         replacementsFlag = 1;
@@ -1712,7 +1653,7 @@ void processDialoguePlaceItemTranslation(sqlite3* db, ordered_json& inputData, c
                         // Form the updated command string
                         std::ostringstream formattedCommand;
                         formattedCommand << std::fixed << std::setprecision(3);
-                        formattedCommand << commandType << ", " << objectID << ", " << newX << ", " << newY << ", " << z;
+                        formattedCommand << commandType << ", " << objectID << ", " << newDestX << ", " << newDestY << ", " << destZ;
                         formattedCommand << ", " << std::fixed << std::setprecision(0) << zRot;
 
                         updatedText += scriptText.substr(searchStart - scriptText.cbegin(), match.position()) +
@@ -1738,7 +1679,7 @@ void processDialoguePlaceItemTranslation(sqlite3* db, ordered_json& inputData, c
 }
 
 // Function to process Script PlaceItemCell translation
-void processScriptPlaceItemCellTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, std::vector<std::string>& updatedScriptIDs, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice) {
+void processScriptPlaceItemCellTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, std::vector<std::string>& updatedScriptIDs, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice, std::ofstream& logFile) {
 
     // Regular expression to find PlaceItemCell commands
     std::regex placeItemCellRegex(R"((PlaceItemCell)\s*,?\s*((?:\"[^\"]+\")|\S+)\s*,?\s*((?:\"[^\"]+\")|\S+)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?))",
@@ -1761,31 +1702,29 @@ void processScriptPlaceItemCellTranslation(sqlite3* db, ordered_json& inputData,
                     std::string commandType = match[1].str();
                     std::string objectID = match[2].str();
                     std::string cellID = match[3].str();
-                    double x = std::stod(match[4].str());
-                    double y = std::stod(match[5].str());
-                    double z = std::stod(match[6].str());
+                    double destX = std::stod(match[4].str());
+                    double destY = std::stod(match[5].str());
+                    double destZ = std::stod(match[6].str());
                     double zRot = std::stod(match[7].str());
 
                     // Round only the integer part for grid coordinates
-                    int gridX = static_cast<int>(std::floor(x / 8192.0));
-                    int gridY = static_cast<int>(std::floor(y / 8192.0));
+                    int gridX = static_cast<int>(std::floor(destX / 8192.0));
+                    int gridY = static_cast<int>(std::floor(destY / 8192.0));
 
                     // Check if coordinate is valid (in DB or customCoordinates)
-                    if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice)) {
+                    if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice, logFile)) {
                         int newGridX = gridX + offset.offsetX;
                         int newGridY = gridY + offset.offsetY;
 
-                        logMessage("Found Script PlaceItemCell translation: (" + std::to_string(gridX) + ", " +
-                            std::to_string(gridY) + ") -> (" + std::to_string(newGridX) + ", " +
-                            std::to_string(newGridY) + ")");
+                        logMessage("Found: Script 'Place Item Cell' translation -> grid (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
+                                   ") | coordinates (" + std::to_string(destX) + ", " + std::to_string(destY) + ")", logFile);
 
                         // New calculation keeping the fractional part
-                        double newX = (newGridX * 8192.0) + (x - (gridX * 8192.0));
-                        double newY = (newGridY * 8192.0) + (y - (gridY * 8192.0));
+                        double newDestX = (newGridX * 8192.0) + (destX - (gridX * 8192.0));
+                        double newDestY = (newGridY * 8192.0) + (destY - (gridY * 8192.0));
 
-                        logMessage("Calculated new coordinates: (" + std::to_string(x) + ", " +
-                            std::to_string(y) + ") -> (" + std::to_string(newX) + ", " +
-                            std::to_string(newY) + ")");
+                        logMessage("Calculating: new destination ----------------> grid (" + std::to_string(newGridX) + ", " + std::to_string(newGridY) +
+                                   ") | coordinates (" + std::to_string(newDestX) + ", " + std::to_string(newDestY) + ")", logFile);
 
                         // Mark replacement in replacements
                         replacementsFlag = 1;
@@ -1794,7 +1733,7 @@ void processScriptPlaceItemCellTranslation(sqlite3* db, ordered_json& inputData,
                         // Form the updated command string
                         std::ostringstream formattedCommand;
                         formattedCommand << std::fixed << std::setprecision(3);
-                        formattedCommand << commandType << ", " << objectID << ", " << cellID << ", " << newX << ", " << newY << ", " << z;
+                        formattedCommand << commandType << ", " << objectID << ", " << cellID << ", " << newDestX << ", " << newDestY << ", " << destZ;
                         formattedCommand << ", " << std::fixed << std::setprecision(0) << zRot;
 
                         updatedText += scriptText.substr(searchStart - scriptText.cbegin(), match.position()) +
@@ -1825,7 +1764,7 @@ void processScriptPlaceItemCellTranslation(sqlite3* db, ordered_json& inputData,
 }
 
 // Function to process Dialogue PlaceItemCell translation
-void processDialoguePlaceItemCellTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice) {
+void processDialoguePlaceItemCellTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice, std::ofstream& logFile) {
 
     // Regular expression to find PlaceItemCell commands
     std::regex placeItemCellRegex(R"((PlaceItemCell)\s*,?\s*((?:\"[^\"]+\")|\S+)\s*,?\s*((?:\"[^\"]+\")|\S+)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?))",
@@ -1846,31 +1785,29 @@ void processDialoguePlaceItemCellTranslation(sqlite3* db, ordered_json& inputDat
                     std::string commandType = match[1].str();
                     std::string objectID = match[2].str();
                     std::string cellID = match[3].str();
-                    double x = std::stod(match[4].str());
-                    double y = std::stod(match[5].str());
-                    double z = std::stod(match[6].str());
+                    double destX = std::stod(match[4].str());
+                    double destY = std::stod(match[5].str());
+                    double destZ = std::stod(match[6].str());
                     double zRot = std::stod(match[7].str());
 
                     // Round only the integer part for grid coordinates
-                    int gridX = static_cast<int>(std::floor(x / 8192.0));
-                    int gridY = static_cast<int>(std::floor(y / 8192.0));
+                    int gridX = static_cast<int>(std::floor(destX / 8192.0));
+                    int gridY = static_cast<int>(std::floor(destY / 8192.0));
 
                     // Check if coordinate is valid (in DB or customCoordinates)
-                    if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice)) {
+                    if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice, logFile)) {
                         int newGridX = gridX + offset.offsetX;
                         int newGridY = gridY + offset.offsetY;
 
-                        logMessage("Found Dialogue PlaceItemCell translation: (" + std::to_string(gridX) + ", " +
-                            std::to_string(gridY) + ") -> (" + std::to_string(newGridX) + ", " +
-                            std::to_string(newGridY) + ")");
+                        logMessage("Found: Dialogue 'Place Item Cell' translation -> grid (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
+                            ") | coordinates (" + std::to_string(destX) + ", " + std::to_string(destY) + ")", logFile);
 
                         // New calculation keeping the fractional part
-                        double newX = (newGridX * 8192.0) + (x - (gridX * 8192.0));
-                        double newY = (newGridY * 8192.0) + (y - (gridY * 8192.0));
+                        double newDestX = (newGridX * 8192.0) + (destX - (gridX * 8192.0));
+                        double newDestY = (newGridY * 8192.0) + (destY - (gridY * 8192.0));
 
-                        logMessage("Calculated new coordinates: (" + std::to_string(x) + ", " +
-                            std::to_string(y) + ") -> (" + std::to_string(newX) + ", " +
-                            std::to_string(newY) + ")");
+                        logMessage("Calculating: new destination ------------------> grid (" + std::to_string(newGridX) + ", " + std::to_string(newGridY) +
+                            ") | coordinates (" + std::to_string(newDestX) + ", " + std::to_string(newDestY) + ")", logFile);
 
                         // Mark replacement in replacements
                         replacementsFlag = 1;
@@ -1878,7 +1815,7 @@ void processDialoguePlaceItemCellTranslation(sqlite3* db, ordered_json& inputDat
                         // Form the updated command string
                         std::ostringstream formattedCommand;
                         formattedCommand << std::fixed << std::setprecision(3);
-                        formattedCommand << commandType << ", " << objectID << ", " << cellID << ", " << newX << ", " << newY << ", " << z;
+                        formattedCommand << commandType << ", " << objectID << ", " << cellID << ", " << newDestX << ", " << newDestY << ", " << destZ;
                         formattedCommand << ", " << std::fixed << std::setprecision(0) << zRot;
 
                         updatedText += scriptText.substr(searchStart - scriptText.cbegin(), match.position()) +
@@ -1904,10 +1841,10 @@ void processDialoguePlaceItemCellTranslation(sqlite3* db, ordered_json& inputDat
 }
 
 // Function to search and update the translation block inside the references object
-void processTranslation(ordered_json& jsonData, const GridOffset& offset, int& replacementsFlag) {
+void processTranslation(ordered_json& jsonData, const GridOffset& offset, int& replacementsFlag, std::ofstream& logFile) {
     // Check if the 'references' key exists and is an array
     if (!jsonData.contains("references") || !jsonData["references"].is_array()) {
-        logMessage("References key is missing or is not an array in JSON.");
+            logMessage("References key is missing or is not an array in JSON.", logFile);
         return;
     }
 
@@ -1919,12 +1856,12 @@ void processTranslation(ordered_json& jsonData, const GridOffset& offset, int& r
             reference["translation"].is_array() &&
             reference["translation"].size() >= 2) {
 
-            logMessage("Processing reference: " + reference.value("id", "Unknown ID"));
+            logMessage("Processing: " + reference.value("id", "Unknown ID"), logFile);
 
             // Log the original translation values before update
             double originalX = reference["translation"][0].get<double>();
             double originalY = reference["translation"][1].get<double>();
-            logMessage("Found translation: X=" + std::to_string(originalX) + ", Y=" + std::to_string(originalY));
+            logMessage("Found reference coordinates -> X = " + std::to_string(originalX) + ", Y = " + std::to_string(originalY), logFile);
 
             // Apply the offset to the X and Y values (multiplied by 8192 for scaling)
             reference["translation"][0] = originalX + offset.offsetX * 8192;
@@ -1936,16 +1873,16 @@ void processTranslation(ordered_json& jsonData, const GridOffset& offset, int& r
             // Log the updated translation values after modification
             double updatedX = reference["translation"][0].get<double>();
             double updatedY = reference["translation"][1].get<double>();
-            logMessage("Calculated new coordinates: X=" + std::to_string(updatedX) + ", Y=" + std::to_string(updatedY));
+            logMessage("Calculating new coordinates -> X = " + std::to_string(updatedX) + ", Y = " + std::to_string(updatedY), logFile);
         }
         else {
-            logMessage("No valid temporary or translation array found in reference: " + reference.value("id", "Unknown ID"));
+            logMessage("No valid temporary or translation array found in reference: " + reference.value("id", "Unknown ID"), logFile);
         }
     }
 }
 
 // Function to process coordinates for Cell, Landscape, and PathGrid types
-void processGridValues(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice) {
+void processGridValues(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, int conversionChoice, std::ofstream& logFile) {
 
     // List of supported types
     std::vector<std::string> typeNames = { "Cell", "Landscape", "PathGrid" };
@@ -1964,7 +1901,7 @@ void processGridValues(sqlite3* db, ordered_json& inputData, const GridOffset& o
         bool hasDataGrid = item.contains("data") && item["data"].contains("grid") && item["data"]["grid"].is_array();
 
         if (!hasTopLevelGrid && !hasDataGrid) {
-            logMessage("Grid key is missing for type: " + typeName);
+            logMessage("Grid key is missing for type: " + typeName, logFile);
             continue;
         }
 
@@ -1980,12 +1917,12 @@ void processGridValues(sqlite3* db, ordered_json& inputData, const GridOffset& o
         }
 
         // Check if coordinate is valid (in DB or customCoordinates)
-        if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice)) {
+        if (isCoordinateValid(db, gridX, gridY, customCoordinates, conversionChoice, logFile)) {
             int newGridX = gridX + offset.offsetX;
             int newGridY = gridY + offset.offsetY;
 
-            logMessage("Updated grid coordinates for (" + typeName + "): (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
-                ") -> (" + std::to_string(newGridX) + ", " + std::to_string(newGridY) + ")");
+            logMessage("Updating grid coordinates for (" + typeName + "): (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
+                       ") -> (" + std::to_string(newGridX) + ", " + std::to_string(newGridY) + ")", logFile);
 
             // Update the grid coordinates in the data
             if (hasTopLevelGrid) {
@@ -1999,23 +1936,20 @@ void processGridValues(sqlite3* db, ordered_json& inputData, const GridOffset& o
 
             // If the type is "Cell", call the processTranslation function to adjust translations
             if (typeName == "Cell") {
-                processTranslation(item, offset, replacementsFlag);
+                processTranslation(item, offset, replacementsFlag, logFile);
             }
 
             // Mark that a replacement has been made
             replacementsFlag = 1;
 
         }
-        else {
-            logMessage("No matches found in database for: " + typeName + " (" + std::to_string(gridX) + ", " + std::to_string(gridY)+")");
-        }
     }
 }
 
 // Function to log updated script IDs
-void logUpdatedScriptIDs(const std::vector<std::string>& updatedScriptIDs) {
+void logUpdatedScriptIDs(const std::vector<std::string>& updatedScriptIDs, std::ofstream& logFile) {
     if (updatedScriptIDs.empty()) {
-        logMessage("\nNo scripts were updated.");
+        logMessage("\nNo scripts were updated", logFile);
         return;
     }
 
@@ -2029,30 +1963,26 @@ void logUpdatedScriptIDs(const std::vector<std::string>& updatedScriptIDs) {
         }
     }
 
-    logMessage("\nUpdated scripts list:");
+    logMessage("\nUpdated scripts list:", logFile);
     for (const auto& id : uniqueIDs) {
-        logMessage("- Script ID: " + id);
+        logMessage("- Script ID: " + id, logFile);
     }
 }
 
-// Saves modified JSON data to file and logs success message
-bool saveJsonToFile(const std::filesystem::path& jsonFilePath, const ordered_json& inputData) {
-    std::ofstream outputFile(jsonFilePath);
-    if (outputFile) {
+// Function to save the modified JSON data to file
+bool saveJsonToFile(const std::filesystem::path& jsonImportPath, const ordered_json& inputData, std::ofstream& logFile) {
+    std::ofstream outputFile(jsonImportPath);
+        if (!outputFile) return false;
         outputFile << std::setw(2) << inputData;
-        logMessage("\nModified JSON saved as: " + jsonFilePath.string() + "\n");
-        return true;
-    }
-    return false;
+            logMessage("\nModified data saved as: " + jsonImportPath.string() + "\n", logFile);
+    return true;
 }
 
-// Executes command to convert JSON file to ESP/ESM format and logs success or failure
-bool convertJsonToEsp(const std::filesystem::path& jsonFilePath, const std::filesystem::path& espFilePath) {
-    std::string command = "tes3conv.exe \"" + jsonFilePath.string() + "\" \"" + espFilePath.string() + "\"";
-    if (std::system(command.c_str()) != 0) {
-        return false;
-    }
-    logMessage("Final conversion to ESM/ESP successful: " + espFilePath.string() + "\n");
+// Function to convert the .JSON file to .ESP|ESM
+bool convertJsonToEsp(const std::filesystem::path& jsonImportPath, const std::filesystem::path& espFilePath, std::ofstream& logFile) {
+    std::string command = "tes3conv.exe \"" + jsonImportPath.string() + "\" \"" + espFilePath.string() + "\"";
+        if (std::system(command.c_str()) != 0) return false;
+            logMessage("Conversion to .ESP|ESM successful: " + espFilePath.string() + "\n", logFile);
     return true;
 }
 
@@ -2061,152 +1991,156 @@ int main() {
     // Display program information
     std::cout << PROGRAM_NAME << "\n" << PROGRAM_VERSION << "\n" << PROGRAM_AUTHOR << "\n\n";
 
-    // Clear previous log entries
-    clearLogFile("tes3_ab_log.txt");
-
-    // Check if database file exists
-    std::filesystem::path dbFilePath = "tes3_ab_cell_x-y_data.db";
-    if (!std::filesystem::exists(dbFilePath)) {
-        logErrorAndExit(nullptr, "Database file 'tes3_ab_cell_x-y_data.db' not found.\n");
+    // Log file initialisation
+    std::ofstream logFile("tes3_ab_log.txt", std::ios::app);
+    if (!logFile) {
+        std::cerr << "ERROR - failed to open log file!\n\n"
+                     "Press Enter to exit...";
+        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+        std::exit(EXIT_FAILURE);
     }
 
+    // Clear log file
+    logClear();
+    logMessage("Log file cleared...", logFile);
+
+    // Check if the database file exists
+    if (!std::filesystem::exists("tes3_ab_cell_x-y_data.db")) {
+        logErrorAndExit(nullptr, "ERROR - database file 'tes3_ab_cell_x-y_data.db' not found!\n", logFile);
+    }
+
+    // Open the database
     sqlite3* db = nullptr;
-
-    // Attempt to open database
-    if (sqlite3_open(dbFilePath.string().c_str(), &db)) {
-        logErrorAndExit(db, "Failed to open database: " + std::string(sqlite3_errmsg(db)) + "\n");
+    if (sqlite3_open("tes3_ab_cell_x-y_data.db", &db)) {
+        logErrorAndExit(db, "ERROR - failed to open database: " + std::string(sqlite3_errmsg(db)) + "!\n", logFile);
     }
-    logMessage("Database opened successfully...");
+    logMessage("Database opened successfully...", logFile);
 
     // Check if the custom grid coordinates file exists
-    std::filesystem::path customFilePath = "tes3_ab_custom_cell_x-y_data.txt";
-    if (!std::filesystem::exists(customFilePath)) {
-        logErrorAndExit(nullptr, "Custom grid coordinates file 'tes3_ab_custom_cell_x-y_data.txt' not found.\n");
+    std::filesystem::path customDBFilePath = "tes3_ab_custom_cell_x-y_data.txt";
+    if (!std::filesystem::exists(customDBFilePath)) {
+        logErrorAndExit(nullptr, "ERROR - custom grid coordinates file 'tes3_ab_custom_cell_x-y_data.txt' not found!\n", logFile);
     }
 
-    // Attempt to load the custom grid coordinates
+    // Open the custom grid coordinates
     std::unordered_set<std::pair<int, int>, PairHash> customCoordinates;
-    loadCustomGridCoordinates(customFilePath.string(), customCoordinates);
-    logMessage("Custom grid coordinates loaded successfully...");
+    loadCustomGridCoordinates(customDBFilePath.string(), customCoordinates, logFile);
+    logMessage("Custom grid coordinates loaded successfully...", logFile);
 
-    // Check if tes3conv.exe exists
-    std::filesystem::path converterPath = "tes3conv.exe";
-    if (!std::filesystem::exists(converterPath)) {
-        logErrorAndExit(db, "tes3conv.exe not found. Please download the latest version from\n"
-            "https://github.com/Greatness7/tes3conv/releases and place it in\nthe same directory with this program.\n");
+    // Check if the converter executable exists
+    if (!std::filesystem::exists("tes3conv.exe")) {
+        logErrorAndExit(db, "ERROR - tes3conv.exe not found! Please download the latest version from\n"
+                            "github.com/Greatness7/tes3conv/releases and place it in the same directory\n"
+                            "with this program.\n", logFile);
     }
-    logMessage("tes3conv.exe found...\nInitialisation complete.\n");
+    logMessage("tes3conv.exe found...\n"
+               "Initialisation complete.", logFile);
 
-    // Get conversion choice from user
-    int ConversionChoice = getUserConversionChoice();
+    // Get the conversion choice from user
+    int conversionChoice = getUserConversionChoice(logFile);
 
-    // Get input file path from user
-    std::filesystem::path inputFilePath = getInputFilePath();
-    std::filesystem::path inputPath(inputFilePath);
+    // Get the input file path from user
+    std::filesystem::path pluginImportPath = getInputFilePath(logFile);
 
-    // Define output paths
-    std::filesystem::path outputDir = inputPath.parent_path();
-    std::filesystem::path jsonFilePath = outputDir / (inputPath.stem() += ".json");
+    // Define the output file path
+    std::filesystem::path jsonImportPath = pluginImportPath.parent_path() / (pluginImportPath.stem().string() + ".json");
 
-    // Convert the input file to JSON using tes3conv.exe
-    std::string command = "tes3conv.exe \"" + inputPath.string() + "\" \"" + jsonFilePath.string() + "\"";
+    // Convert the input file to .JSON
+    std::string command = "tes3conv.exe \"" + pluginImportPath.string() + "\" \"" + jsonImportPath.string() + "\"";
     if (std::system(command.c_str()) != 0) {
-        logErrorAndExit(db, "Error converting to JSON. Check tes3conv.exe and the input file.\n");
+        logErrorAndExit(db, "ERROR - converting to .JSON failed!\n", logFile);
     }
-    logMessage("Conversion to JSON successful: " + jsonFilePath.string());
+    logMessage("Conversion to .JSON successful: " + jsonImportPath.string(), logFile);
 
     // Load the generated JSON file into a JSON object
-    std::ifstream inputFile(jsonFilePath);
-    if (!inputFile) {
-        logErrorAndExit(db, "Failed to open JSON file for reading: " + jsonFilePath.string() + "\n");
-    }
+    std::ifstream inputFile(jsonImportPath);
     ordered_json inputData;
     inputFile >> inputData;
     inputFile.close();
 
-    // Check if the required dependencies are ordered correctly in the input data
-    auto [isValid, validMastersDB] = checkDependencyOrder(inputData);
-    if (!isValid) {
-        // Remove the temporary JSON file if it exists
-        if (std::filesystem::exists(jsonFilePath)) {
-            std::filesystem::remove(jsonFilePath);
-            logMessage("Temporary JSON file deleted: " + jsonFilePath.string() + "\n");
-        }
-        logErrorAndExit(db, "Required Parent Masters not found or are in the wrong order.\n");
-    }
+    // Check the dependency order of the Parent Master files in the input data
+    //auto [isValid, validMasters] = checkDependencyOrder(inputData, logFile);
+    //if (!isValid) {
+    //    std::filesystem::remove(jsonImportPath);
+    //    logMessage("Temporary .JSON file deleted: " + jsonImportPath.string() + "\n", logFile);
+    //    logErrorAndExit(db, "ERROR - required Parent Master files dependency not found, or theit order is invalid!\n", logFile);
+    //}
 
-    // Retrieve the grid offset based on the conversion choice
-    GridOffset offset = getGridOffset(ConversionChoice);
-
-    // Prepare replacements for possible undo of the conversion
+    // Initialize the replacements flag
     int replacementsFlag = 0;
 
-    // Vector to store the IDs of scripts that were updated during processing
+    // Initialize vector to store the IDs of scripts that were updated during processing
     std::vector<std::string> updatedScriptIDs;
 
-    // Search for data and make replacements
-    processGridValues(db, inputData, offset, replacementsFlag, customCoordinates, ConversionChoice);
-    processInterriorDoorsTranslation(db, inputData, offset, replacementsFlag, customCoordinates, ConversionChoice);
-    processNpcTravelDestinations(db, inputData, offset, replacementsFlag, customCoordinates, ConversionChoice);
+    // Initialize the grid offsets based on user conversion choice
+    GridOffset offset = getGridOffset(conversionChoice);
 
-    processScriptAiEscortTranslation(db, inputData, offset, replacementsFlag, updatedScriptIDs, customCoordinates, ConversionChoice);
-    processScriptAiEscortCellTranslation(db, inputData, offset, replacementsFlag, updatedScriptIDs, customCoordinates, ConversionChoice);
-    processScriptAiFollowTranslation(db, inputData, offset, replacementsFlag, updatedScriptIDs, customCoordinates, ConversionChoice);
-    processScriptAiFollowCellTranslation(db, inputData, offset, replacementsFlag, updatedScriptIDs, customCoordinates, ConversionChoice);
-    processScriptAiTravelTranslation(db, inputData, offset, replacementsFlag, updatedScriptIDs, customCoordinates, ConversionChoice);
-    processScriptPositionTranslation(db, inputData, offset, replacementsFlag, updatedScriptIDs, customCoordinates, ConversionChoice);
-    processScriptPositionCellTranslation(db, inputData, offset, replacementsFlag, updatedScriptIDs, customCoordinates, ConversionChoice);
-    processScriptPlaceItemTranslation(db, inputData, offset, replacementsFlag, updatedScriptIDs, customCoordinates, ConversionChoice);
-    processScriptPlaceItemCellTranslation(db, inputData, offset, replacementsFlag, updatedScriptIDs, customCoordinates, ConversionChoice);
+    // Process replacements
+    processGridValues(db, inputData, offset, replacementsFlag, customCoordinates, conversionChoice, logFile);
+    processInterriorDoorsTranslation(db, inputData, offset, replacementsFlag, customCoordinates, conversionChoice, logFile);
+    processNpcTravelDestinations(db, inputData, offset, replacementsFlag, customCoordinates, conversionChoice, logFile);
 
-    processDialogueAiEscortTranslation(db, inputData, offset, replacementsFlag, customCoordinates, ConversionChoice);
-    processDialogueAiEscortCellTranslation(db, inputData, offset, replacementsFlag, customCoordinates, ConversionChoice);
-    processDialogueAiFollowTranslation(db, inputData, offset, replacementsFlag, customCoordinates, ConversionChoice);
-    processDialogueAiFollowCellTranslation(db, inputData, offset, replacementsFlag, customCoordinates, ConversionChoice);
-    processDialogueAiTravelTranslation(db, inputData, offset, replacementsFlag, customCoordinates, ConversionChoice);
-    processDialoguePositionTranslation(db, inputData, offset, replacementsFlag, customCoordinates, ConversionChoice);
-    processDialoguePositionCellTranslation(db, inputData, offset, replacementsFlag, customCoordinates, ConversionChoice);
-    processDialoguePlaceItemTranslation(db, inputData, offset, replacementsFlag, customCoordinates, ConversionChoice);
-    processDialoguePlaceItemCellTranslation(db, inputData, offset, replacementsFlag, customCoordinates, ConversionChoice);
+    processScriptAiEscortTranslation(db, inputData, offset, replacementsFlag, updatedScriptIDs, customCoordinates, conversionChoice, logFile);
+    processScriptAiEscortCellTranslation(db, inputData, offset, replacementsFlag, updatedScriptIDs, customCoordinates, conversionChoice, logFile);
+    processScriptAiFollowTranslation(db, inputData, offset, replacementsFlag, updatedScriptIDs, customCoordinates, conversionChoice, logFile);
+    processScriptAiFollowCellTranslation(db, inputData, offset, replacementsFlag, updatedScriptIDs, customCoordinates, conversionChoice, logFile);
+    processScriptAiTravelTranslation(db, inputData, offset, replacementsFlag, updatedScriptIDs, customCoordinates, conversionChoice, logFile);
+    processScriptPositionTranslation(db, inputData, offset, replacementsFlag, updatedScriptIDs, customCoordinates, conversionChoice, logFile);
+    processScriptPositionCellTranslation(db, inputData, offset, replacementsFlag, updatedScriptIDs, customCoordinates, conversionChoice, logFile);
+    processScriptPlaceItemTranslation(db, inputData, offset, replacementsFlag, updatedScriptIDs, customCoordinates, conversionChoice, logFile);
+    processScriptPlaceItemCellTranslation(db, inputData, offset, replacementsFlag, updatedScriptIDs, customCoordinates, conversionChoice, logFile);
 
-    // If no replacements were found, cancel the conversion
+    processDialogueAiEscortTranslation(db, inputData, offset, replacementsFlag, customCoordinates, conversionChoice, logFile);
+    processDialogueAiEscortCellTranslation(db, inputData, offset, replacementsFlag, customCoordinates, conversionChoice, logFile);
+    processDialogueAiFollowTranslation(db, inputData, offset, replacementsFlag, customCoordinates, conversionChoice, logFile);
+    processDialogueAiFollowCellTranslation(db, inputData, offset, replacementsFlag, customCoordinates, conversionChoice, logFile);
+    processDialogueAiTravelTranslation(db, inputData, offset, replacementsFlag, customCoordinates, conversionChoice, logFile);
+    processDialoguePositionTranslation(db, inputData, offset, replacementsFlag, customCoordinates, conversionChoice, logFile);
+    processDialoguePositionCellTranslation(db, inputData, offset, replacementsFlag, customCoordinates, conversionChoice, logFile);
+    processDialoguePlaceItemTranslation(db, inputData, offset, replacementsFlag, customCoordinates, conversionChoice, logFile);
+    processDialoguePlaceItemCellTranslation(db, inputData, offset, replacementsFlag, customCoordinates, conversionChoice, logFile);
+
+    // Check if any replacements were made: if no replacements were found, cancel the conversion
     if (replacementsFlag == 0) {
-        // Remove the temporary JSON file
-        if (std::filesystem::exists(jsonFilePath)) {
-            std::filesystem::remove(jsonFilePath);
-            logMessage("Temporary JSON file deleted: " + jsonFilePath.string() + "\n");
-        }
-        logErrorAndExit(db, "No replacements found. Conversion canceled.\n");
+        std::filesystem::remove(jsonImportPath);
+        logMessage("Temporary .JSON file deleted: " + jsonImportPath.string() + "\n", logFile);
+        logErrorAndExit(db, "No replacements found: conversion canceled\n", logFile);
     }
 
     // Log updated script IDs
-    logUpdatedScriptIDs(updatedScriptIDs);
+    logUpdatedScriptIDs(updatedScriptIDs, logFile);
 
-    // Save the modified JSON data to a new file using the saveJsonToFile function
-    std::filesystem::path newJsonFilePath = outputDir / ("CONV_" + std::string(ConversionChoice == 1 ? "BMtoAB" : "ABtoBM") + "_" + inputPath.stem().string() + ".json");
+    // Define conversion prefix
+    std::string convPrefix = (conversionChoice == 1) ? "BMtoAB" : "ABtoBM";
 
-    if (!saveJsonToFile(newJsonFilePath, inputData)) {
-        logErrorAndExit(db, "Error saving modified JSON file.\n");
+    // Save the modified data to.JSON file
+    auto newJsonName = std::format("CONV_{}_{}{}", convPrefix, pluginImportPath.stem().string(), ".json");
+
+    std::filesystem::path jsonExportPath = pluginImportPath.parent_path() / newJsonName;
+    if (!saveJsonToFile(jsonExportPath, inputData, logFile)) {
+        logErrorAndExit(db, "ERROR - failed to save modified data to .JSON file!\n", logFile);
     }
 
-    // Convert the JSON back to ESP/ESM format
-    std::filesystem::path outputExtension = inputPath.extension();
-    std::filesystem::path newEspPath = outputDir / ("CONV_" + std::string(ConversionChoice == 1 ? "BMtoAB" : "ABtoBM") + "_" + inputPath.stem().string() + outputExtension.string());
+    // Convert the .JSON file back to .ESP|ESM
+    auto pluginExportName = std::format("CONV_{}_{}{}", convPrefix, pluginImportPath.stem().string(), pluginImportPath.extension().string());
 
-    if (!convertJsonToEsp(newJsonFilePath, newEspPath)) {
-        logErrorAndExit(db, "Error converting JSON back to ESM/ESP.\n");
+    std::filesystem::path pluginExportPath = pluginImportPath.parent_path() / pluginExportName;
+    if (!convertJsonToEsp(jsonExportPath, pluginExportPath, logFile)) {
+        logErrorAndExit(db, "ERROR - failed to convert .JSON back to .ESP|ESM!\n", logFile);
     }
 
-    // Delete both JSON files if conversion succeeds
-    if (std::filesystem::exists(jsonFilePath)) std::filesystem::remove(jsonFilePath);
-    if (std::filesystem::exists(newJsonFilePath)) std::filesystem::remove(newJsonFilePath);
-    logMessage("Temporary JSON files deleted: " + jsonFilePath.string() + "\n                         and: " + newJsonFilePath.string() + "\n");
+    // Clean up temporary .JSON files
+    std::filesystem::remove(jsonImportPath);
+    std::filesystem::remove(jsonExportPath);
+    logMessage("Temporary .JSON files deleted: " + jsonImportPath.string() + "\n" +
+               "                          and: " + jsonExportPath.string() + "\n", logFile);
 
-    // Close the database and finish execution
+    // Close the database
     sqlite3_close(db);
-    logMessage("The ending of the words is ALMSIVI.\n");
+    logMessage("The ending of the words is ALMSIVI\n", logFile);
+    logFile.close();
 
-    // Wait for the Enter key to finish
+    // Wait for user input before exiting
     std::cout << "Press Enter to continue...";
     std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
     return 0;
