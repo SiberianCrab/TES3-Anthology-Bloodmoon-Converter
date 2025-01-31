@@ -2059,12 +2059,12 @@ int main() {
     inputFile.close();
 
     // Check the dependency order of the Parent Master files in the input data
-    //auto [isValid, validMasters] = checkDependencyOrder(inputData, logFile);
-    //if (!isValid) {
-    //    std::filesystem::remove(jsonImportPath);
-    //    logMessage("Temporary .JSON file deleted: " + jsonImportPath.string() + "\n", logFile);
-    //    logErrorAndExit(db, "ERROR - required Parent Master files dependency not found, or theit order is invalid!\n", logFile);
-    //}
+    auto [isValid, validMasters] = checkDependencyOrder(inputData, logFile);
+    if (!isValid) {
+        std::filesystem::remove(jsonImportPath);
+        logMessage("Temporary .JSON file deleted: " + jsonImportPath.string() + "\n", logFile);
+        logErrorAndExit(db, "ERROR - required Parent Master files dependency not found, or theit order is invalid!\n", logFile);
+    }
 
     // Initialize the replacements flag
     int replacementsFlag = 0;
