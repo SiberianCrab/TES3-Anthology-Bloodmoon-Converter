@@ -24,7 +24,7 @@ using ordered_json = nlohmann::ordered_json;
 
 // Define program metadata constants
 const std::string PROGRAM_NAME = "TES3 Anthology Bloodmoon Converter";
-const std::string PROGRAM_VERSION = "V 1.1.0";
+const std::string PROGRAM_VERSION = "V 1.1.1";
 const std::string PROGRAM_AUTHOR = "by SiberianCrab";
 
 // Define the GridOffset structure
@@ -1850,6 +1850,12 @@ void processTranslation(ordered_json& jsonData, const GridOffset& offset, int& r
 
     // Loop through each reference in the references array
     for (auto& reference : jsonData["references"]) {
+        // Check if the reference is marked as deleted
+        if (reference.contains("deleted") && reference["deleted"].get<bool>()) {
+            //logMessage("Skipping deleted reference -> " + reference.value("id", "Unknown ID"), logFile);
+            continue; // Skip this reference
+        }
+
         // Check if the reference contains "temporary" and "translation", and if translation is an array of at least 2 elements
         if (reference.contains("temporary") &&
             reference.contains("translation") &&
