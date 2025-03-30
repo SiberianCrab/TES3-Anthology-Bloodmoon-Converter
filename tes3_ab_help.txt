@@ -1,0 +1,48 @@
+TES3 Anthology Bloodmoon Converter - Help
+=========================================
+
+Usage:
+  .\"TES3 Anthology Bloodmoon Converter.exe" [OPTIONS] [TARGETS]
+
+Options:
+  -b, --batch      Enable batch mode (auto-accept all changes)
+  -s, --silent     Suppress non-critical messages
+  -1, --bm-to-ab   Convert Bloodmoon -> Anthology Bloodmoon
+  -2, --ab-to-bm   Convert Anthology Bloodmoon -> Bloodmoon
+  -h, --help       Show this help message
+
+Target Formats:
+  - Directory (recursive processing):
+    "C:\Morrowind\Data Files\"
+    .\Data\  (relative path)
+
+  - Single/Multiple Files:
+    file.esp
+    "file with spaces.esm"
+    file1.esp file2.esm "file 3.esp"
+
+Path Handling Rules:
+  - Always quote paths with spaces
+  - Relative paths start from program's directory
+
+Wildcards Support:
+  - CMD: Only current folder (*.esp)
+  - PowerShell (recommended for recursive):
+    & .\"TES3 Anthology Bloodmoon Converter.exe" -1 (Get-ChildItem -Recurse -Filter "*.esp").FullName
+
+Shell Specifics:
+  - CMD:
+    .\"TES3 Anthology Bloodmoon Converter.exe" -1 "C:\Mods\file.esp"
+
+  - PowerShell:
+    & .\"TES3 Anthology Bloodmoon Converter.exe" -1 "D:\Modding\my mod.esp"
+
+Example Commands:
+  - Convert entire folder:
+    .\"TES3 Anthology Bloodmoon Converter.exe" -b -1 "C:\Morrowind\Data Files\"
+
+  - Convert multiple specific files:
+    .\"TES3 Anthology Bloodmoon Converter.exe" -2 "C:\Mods\My Mod RU.esp" My_Mod.esm
+
+  - Silent mode with PowerShell:
+    & .\"TES3 Anthology Bloodmoon Converter.exe" -s -1 (Get-ChildItem -Recurse -Filter "*_RU.esp").FullName
