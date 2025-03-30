@@ -56,5 +56,8 @@
     <CopyFileToFolders Include="DB\tes3_ab_custom_cell_x-y_data.txt">
       <Filter>DB</Filter>
     </CopyFileToFolders>
+    <CopyFileToFolders Include="tes3_ab_help.txt">
+      <Filter>Resource Files</Filter>
+    </CopyFileToFolders>
   </ItemGroup>
 </Project>
