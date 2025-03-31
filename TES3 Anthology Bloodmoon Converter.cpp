@@ -493,8 +493,10 @@ void processInterriorDoorsTranslation(sqlite3* db, ordered_json& inputData, cons
                                 int newGridX = gridX + offset.offsetX;
                                 int newGridY = gridY + offset.offsetY;
 
-                                logMessage("Found: Interior Door translation -> grid (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
-                                           ") | coordinates (" + std::to_string(destX) + ", " + std::to_string(destY) + ")", logFile);
+                                if (!options.silentMode) {
+                                    logMessage("Found: Interior Door translation -> grid (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
+                                               ") | coordinates (" + std::to_string(destX) + ", " + std::to_string(destY) + ")", logFile);
+                                }
 
                                 // New calculation keeping the fractional part for destination translation
                                 double newDestX = (newGridX * 8192.0) + (destX - (gridX * 8192.0));
@@ -507,8 +509,10 @@ void processInterriorDoorsTranslation(sqlite3* db, ordered_json& inputData, cons
                                 reference["destination"]["translation"][0] = newDestX;
                                 reference["destination"]["translation"][1] = newDestY;
 
-                                logMessage("Calculating: new destination -----> grid (" + std::to_string(newGridX) + ", " + std::to_string(newGridY) +
-                                           ") | coordinates (" + std::to_string(newDestX) + ", " + std::to_string(newDestY) + ")", logFile);
+                                if (!options.silentMode) {
+                                    logMessage("Calculating: new destination -----> grid (" + std::to_string(newGridX) + ", " + std::to_string(newGridY) +
+                                               ") | coordinates (" + std::to_string(newDestX) + ", " + std::to_string(newDestY) + ")", logFile);
+                                }
                             }
                         }
                     }
@@ -539,8 +543,10 @@ void processNpcTravelDestinations(sqlite3* db, ordered_json& inputData, const Gr
                             int newGridX = gridX + offset.offsetX;
                             int newGridY = gridY + offset.offsetY;
 
-                            logMessage("Found: NPC 'Travel Service' translation -> grid (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
-                                       ") | coordinates (" + std::to_string(destX) + ", " + std::to_string(destY) + ")", logFile);
+                            if (!options.silentMode) {
+                                logMessage("Found: NPC 'Travel Service' translation -> grid (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
+                                           ") | coordinates (" + std::to_string(destX) + ", " + std::to_string(destY) + ")", logFile);
+                            }
 
                             // New calculation keeping the fractional part for destination coordinates
                             double newDestX = (newGridX * 8192.0) + (destX - (gridX * 8192.0));
@@ -553,8 +559,10 @@ void processNpcTravelDestinations(sqlite3* db, ordered_json& inputData, const Gr
                             destination["translation"][0] = newDestX;
                             destination["translation"][1] = newDestY;
 
-                            logMessage("Calculating: new destination ------------> grid (" + std::to_string(newGridX) + ", " + std::to_string(newGridY) +
-                                       ") | coordinates (" + std::to_string(newDestX) + ", " + std::to_string(newDestY) + ")", logFile);
+                            if (!options.silentMode) {
+                                logMessage("Calculating: new destination ------------> grid (" + std::to_string(newGridX) + ", " + std::to_string(newGridY) +
+                                           ") | coordinates (" + std::to_string(newDestX) + ", " + std::to_string(newDestY) + ")", logFile);
+                            }
                         }
                     }
                 }
@@ -601,15 +609,19 @@ void processScriptAiEscortTranslation(sqlite3* db, ordered_json& inputData, cons
                         int newGridX = gridX + offset.offsetX;
                         int newGridY = gridY + offset.offsetY;
 
-                        logMessage("Found: Script 'AI Escort' translation -> grid (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
-                                   ") | coordinates (" + std::to_string(destX) + ", " + std::to_string(destY) + ")", logFile);
+                        if (!options.silentMode) {
+                            logMessage("Found: Script 'AI Escort' translation -> grid (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
+                                       ") | coordinates (" + std::to_string(destX) + ", " + std::to_string(destY) + ")", logFile);
+                        }
 
                         // New calculation keeping the fractional part
                         double newDestX = (newGridX * 8192.0) + (destX - (gridX * 8192.0));
                         double newDestY = (newGridY * 8192.0) + (destY - (gridY * 8192.0));
 
-                        logMessage("Calculating: new destination ----------> grid (" + std::to_string(newGridX) + ", " + std::to_string(newGridY) +
-                                   ") | coordinates (" + std::to_string(newDestX) + ", " + std::to_string(newDestY) + ")", logFile);
+                        if (!options.silentMode) {
+                            logMessage("Calculating: new destination ----------> grid (" + std::to_string(newGridX) + ", " + std::to_string(newGridY) +
+                                       ") | coordinates (" + std::to_string(newDestX) + ", " + std::to_string(newDestY) + ")", logFile);
+                        }
 
                         // Mark replacement in replacements
                         replacementsFlag = 1;
@@ -688,15 +700,19 @@ void processDialogueAiEscortTranslation(sqlite3* db, ordered_json& inputData, co
                         int newGridX = gridX + offset.offsetX;
                         int newGridY = gridY + offset.offsetY;
 
-                        logMessage("Found: Dialogue 'AI Escort' translation -> grid (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
-                                   ") | coordinates (" + std::to_string(destX) + ", " + std::to_string(destY) + ")", logFile);
+                        if (!options.silentMode) {
+                            logMessage("Found: Dialogue 'AI Escort' translation -> grid (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
+                                       ") | coordinates (" + std::to_string(destX) + ", " + std::to_string(destY) + ")", logFile);
+                        }
 
                         // New calculation keeping the fractional part
                         double newDestX = (newGridX * 8192.0) + (destX - (gridX * 8192.0));
                         double newDestY = (newGridY * 8192.0) + (destY - (gridY * 8192.0));
 
-                        logMessage("Calculating: new destination ------------> grid (" + std::to_string(newGridX) + ", " + std::to_string(newGridY) +
-                                   ") | coordinates (" + std::to_string(newDestX) + ", " + std::to_string(newDestY) + ")", logFile);
+                        if (!options.silentMode) {
+                            logMessage("Calculating: new destination ------------> grid (" + std::to_string(newGridX) + ", " + std::to_string(newGridY) +
+                                       ") | coordinates (" + std::to_string(newDestX) + ", " + std::to_string(newDestY) + ")", logFile);
+                        }
 
                         // Mark replacement in replacements
                         replacementsFlag = 1;
@@ -772,15 +788,19 @@ void processScriptAiEscortCellTranslation(sqlite3* db, ordered_json& inputData, 
                         int newGridX = gridX + offset.offsetX;
                         int newGridY = gridY + offset.offsetY;
 
-                        logMessage("Found: Script 'AI Escort Cell' translation -> grid (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
-                                   ") | coordinates (" + std::to_string(destX) + ", " + std::to_string(destY) + ")", logFile);
+                        if (!options.silentMode) {
+                            logMessage("Found: Script 'AI Escort Cell' translation -> grid (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
+                                       ") | coordinates (" + std::to_string(destX) + ", " + std::to_string(destY) + ")", logFile);
+                        }
 
                         // New calculation keeping the fractional part
                         double newDestX = (newGridX * 8192.0) + (destX - (gridX * 8192.0));
                         double newDestY = (newGridY * 8192.0) + (destY - (gridY * 8192.0));
 
-                        logMessage("Calculating: new destination ---------------> grid (" + std::to_string(newGridX) + ", " + std::to_string(newGridY) +
-                                   ") | coordinates (" + std::to_string(newDestX) + ", " + std::to_string(newDestY) + ")", logFile);
+                        if (!options.silentMode) {
+                            logMessage("Calculating: new destination ---------------> grid (" + std::to_string(newGridX) + ", " + std::to_string(newGridY) +
+                                       ") | coordinates (" + std::to_string(newDestX) + ", " + std::to_string(newDestY) + ")", logFile);
+                        }
 
                         // Mark replacement in replacements
                         replacementsFlag = 1;
@@ -860,15 +880,19 @@ void processDialogueAiEscortCellTranslation(sqlite3* db, ordered_json& inputData
                         int newGridX = gridX + offset.offsetX;
                         int newGridY = gridY + offset.offsetY;
 
-                        logMessage("Found: Dialogue 'AI Escort Cell' translation -> grid (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
-                                   ") | coordinates (" + std::to_string(destX) + ", " + std::to_string(destY) + ")", logFile);
+                        if (!options.silentMode) {
+                            logMessage("Found: Dialogue 'AI Escort Cell' translation -> grid (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
+                                       ") | coordinates (" + std::to_string(destX) + ", " + std::to_string(destY) + ")", logFile);
+                        }
 
                         // New calculation keeping the fractional part
                         double newDestX = (newGridX * 8192.0) + (destX - (gridX * 8192.0));
                         double newDestY = (newGridY * 8192.0) + (destY - (gridY * 8192.0));
 
-                        logMessage("Calculating: new destination -----------------> grid (" + std::to_string(newGridX) + ", " + std::to_string(newGridY) +
-                                   ") | coordinates (" + std::to_string(newDestX) + ", " + std::to_string(newDestY) + ")", logFile);
+                        if (!options.silentMode) {
+                            logMessage("Calculating: new destination -----------------> grid (" + std::to_string(newGridX) + ", " + std::to_string(newGridY) +
+                                       ") | coordinates (" + std::to_string(newDestX) + ", " + std::to_string(newDestY) + ")", logFile);
+                        }
 
                         // Mark replacement in replacements
                         replacementsFlag = 1;
@@ -943,15 +967,19 @@ void processScriptAiFollowTranslation(sqlite3* db, ordered_json& inputData, cons
                         int newGridX = gridX + offset.offsetX;
                         int newGridY = gridY + offset.offsetY;
 
-                        logMessage("Found: Script 'AI Follow' translation -> grid (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
-                                   ") | coordinates (" + std::to_string(destX) + ", " + std::to_string(destY) + ")", logFile);
+                        if (!options.silentMode) {
+                            logMessage("Found: Script 'AI Follow' translation -> grid (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
+                                       ") | coordinates (" + std::to_string(destX) + ", " + std::to_string(destY) + ")", logFile);
+                        }
 
                         // New calculation keeping the fractional part
                         double newDestX = (newGridX * 8192.0) + (destX - (gridX * 8192.0));
                         double newDestY = (newGridY * 8192.0) + (destY - (gridY * 8192.0));
 
-                        logMessage("Calculating: new destination ----------> grid (" + std::to_string(newGridX) + ", " + std::to_string(newGridY) +
-                                   ") | coordinates (" + std::to_string(newDestX) + ", " + std::to_string(newDestY) + ")", logFile);
+                        if (!options.silentMode) {
+                            logMessage("Calculating: new destination ----------> grid (" + std::to_string(newGridX) + ", " + std::to_string(newGridY) +
+                                       ") | coordinates (" + std::to_string(newDestX) + ", " + std::to_string(newDestY) + ")", logFile);
+                        }
 
                         // Mark replacement in replacements
                         replacementsFlag = 1;
@@ -1030,15 +1058,19 @@ void processDialogueAiFollowTranslation(sqlite3* db, ordered_json& inputData, co
                         int newGridX = gridX + offset.offsetX;
                         int newGridY = gridY + offset.offsetY;
 
-                        logMessage("Found: Dialogue 'AI Follow' translation -> grid (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
-                                   ") | coordinates (" + std::to_string(destX) + ", " + std::to_string(destY) + ")", logFile);
+                        if (!options.silentMode) {
+                            logMessage("Found: Dialogue 'AI Follow' translation -> grid (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
+                                       ") | coordinates (" + std::to_string(destX) + ", " + std::to_string(destY) + ")", logFile);
+                        }
 
                         // New calculation keeping the fractional part
                         double newDestX = (newGridX * 8192.0) + (destX - (gridX * 8192.0));
                         double newDestY = (newGridY * 8192.0) + (destY - (gridY * 8192.0));
 
-                        logMessage("Calculating: new destination ------------> grid (" + std::to_string(newGridX) + ", " + std::to_string(newGridY) +
-                                   ") | coordinates (" + std::to_string(newDestX) + ", " + std::to_string(newDestY) + ")", logFile);
+                        if (!options.silentMode) {
+                            logMessage("Calculating: new destination ------------> grid (" + std::to_string(newGridX) + ", " + std::to_string(newGridY) +
+                                       ") | coordinates (" + std::to_string(newDestX) + ", " + std::to_string(newDestY) + ")", logFile);
+                        }
 
                         // Mark replacement in replacements
                         replacementsFlag = 1;
@@ -1113,15 +1145,19 @@ void processScriptAiFollowCellTranslation(sqlite3* db, ordered_json& inputData, 
                         int newGridX = gridX + offset.offsetX;
                         int newGridY = gridY + offset.offsetY;
 
-                        logMessage("Found: Script 'AI Follow Cell' translation -> grid (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
-                                   ") | coordinates (" + std::to_string(destX) + ", " + std::to_string(destY) + ")", logFile);
+                        if (!options.silentMode) {
+                            logMessage("Found: Script 'AI Follow Cell' translation -> grid (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
+                                       ") | coordinates (" + std::to_string(destX) + ", " + std::to_string(destY) + ")", logFile);
+                        }
 
                         // New calculation keeping the fractional part
                         double newDestX = (newGridX * 8192.0) + (destX - (gridX * 8192.0));
                         double newDestY = (newGridY * 8192.0) + (destY - (gridY * 8192.0));
 
-                        logMessage("Calculating: new destination ---------------> grid (" + std::to_string(newGridX) + ", " + std::to_string(newGridY) +
-                                   ") | coordinates (" + std::to_string(newDestX) + ", " + std::to_string(newDestY) + ")", logFile);
+                        if (!options.silentMode) {
+                            logMessage("Calculating: new destination ---------------> grid (" + std::to_string(newGridX) + ", " + std::to_string(newGridY) +
+                                       ") | coordinates (" + std::to_string(newDestX) + ", " + std::to_string(newDestY) + ")", logFile);
+                        }
 
                         // Mark replacement in replacements
                         replacementsFlag = 1;
@@ -1201,15 +1237,19 @@ void processDialogueAiFollowCellTranslation(sqlite3* db, ordered_json& inputData
                         int newGridX = gridX + offset.offsetX;
                         int newGridY = gridY + offset.offsetY;
 
-                        logMessage("Found: Dialogue 'AI Follow Cell' translation -> grid (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
-                                   ") | coordinates (" + std::to_string(destX) + ", " + std::to_string(destY) + ")", logFile);
+                        if (!options.silentMode) {
+                            logMessage("Found: Dialogue 'AI Follow Cell' translation -> grid (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
+                                       ") | coordinates (" + std::to_string(destX) + ", " + std::to_string(destY) + ")", logFile);
+                        }
 
                         // New calculation keeping the fractional part
                         double newDestX = (newGridX * 8192.0) + (destX - (gridX * 8192.0));
                         double newDestY = (newGridY * 8192.0) + (destY - (gridY * 8192.0));
 
-                        logMessage("Calculating: new destination -----------------> grid (" + std::to_string(newGridX) + ", " + std::to_string(newGridY) +
-                                   ") | coordinates (" + std::to_string(newDestX) + ", " + std::to_string(newDestY) + ")", logFile);
+                        if (!options.silentMode) {
+                            logMessage("Calculating: new destination -----------------> grid (" + std::to_string(newGridX) + ", " + std::to_string(newGridY) +
+                                       ") | coordinates (" + std::to_string(newDestX) + ", " + std::to_string(newDestY) + ")", logFile);
+                        }
 
                         // Mark replacement in replacements
                         replacementsFlag = 1;
@@ -1282,15 +1322,19 @@ void processScriptAiTravelTranslation(sqlite3* db, ordered_json& inputData, cons
                         int newGridX = gridX + offset.offsetX;
                         int newGridY = gridY + offset.offsetY;
 
-                        logMessage("Found: Script 'AI Travel' translation -> grid (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
-                                   ") | coordinates (" + std::to_string(destX) + ", " + std::to_string(destY) + ")", logFile);
+                        if (!options.silentMode) {
+                            logMessage("Found: Script 'AI Travel' translation -> grid (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
+                                       ") | coordinates (" + std::to_string(destX) + ", " + std::to_string(destY) + ")", logFile);
+                        }
 
                         // New calculation keeping the fractional part
                         double newDestX = (newGridX * 8192.0) + (destX - (gridX * 8192.0));
                         double newDestY = (newGridY * 8192.0) + (destY - (gridY * 8192.0));
 
-                        logMessage("Calculating: new destination ----------> grid (" + std::to_string(newGridX) + ", " + std::to_string(newGridY) +
-                                   ") | coordinates (" + std::to_string(newDestX) + ", " + std::to_string(newDestY) + ")", logFile);
+                        if (!options.silentMode) {
+                            logMessage("Calculating: new destination ----------> grid (" + std::to_string(newGridX) + ", " + std::to_string(newGridY) +
+                                       ") | coordinates (" + std::to_string(newDestX) + ", " + std::to_string(newDestY) + ")", logFile);
+                        }
 
                         // Mark replacement in replacements
                         replacementsFlag = 1;
@@ -1366,15 +1410,19 @@ void processDialogueAiTravelTranslation(sqlite3* db, ordered_json& inputData, co
                         int newGridX = gridX + offset.offsetX;
                         int newGridY = gridY + offset.offsetY;
 
-                        logMessage("Found: Dialogue 'AI Travel' translation -> grid (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
-                                   ") | coordinates (" + std::to_string(destX) + ", " + std::to_string(destY) + ")", logFile);
+                        if (!options.silentMode) {
+                            logMessage("Found: Dialogue 'AI Travel' translation -> grid (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
+                                       ") | coordinates (" + std::to_string(destX) + ", " + std::to_string(destY) + ")", logFile);
+                        }
 
                         // New calculation keeping the fractional part
                         double newDestX = (newGridX * 8192.0) + (destX - (gridX * 8192.0));
                         double newDestY = (newGridY * 8192.0) + (destY - (gridY * 8192.0));
 
-                        logMessage("Calculating: new destination ------------> grid (" + std::to_string(newGridX) + ", " + std::to_string(newGridY) +
-                                   ") | coordinates (" + std::to_string(newDestX) + ", " + std::to_string(newDestY) + ")", logFile);
+                        if (!options.silentMode) {
+                            logMessage("Calculating: new destination ------------> grid (" + std::to_string(newGridX) + ", " + std::to_string(newGridY) +
+                                       ") | coordinates (" + std::to_string(newDestX) + ", " + std::to_string(newDestY) + ")", logFile);
+                        }
 
                         // Mark replacement in replacements
                         replacementsFlag = 1;
@@ -1442,15 +1490,19 @@ void processScriptPositionTranslation(sqlite3* db, ordered_json& inputData, cons
                         int newGridX = gridX + offset.offsetX;
                         int newGridY = gridY + offset.offsetY;
 
-                        logMessage("Found: Script 'Position' translation -> grid (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
-                                   ") | coordinates (" + std::to_string(destX) + ", " + std::to_string(destY) + ")", logFile);
+                        if (!options.silentMode) {
+                            logMessage("Found: Script 'Position' translation -> grid (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
+                                       ") | coordinates (" + std::to_string(destX) + ", " + std::to_string(destY) + ")", logFile);
+                        }
 
                         // New calculation keeping the fractional part
                         double newDestX = (newGridX * 8192.0) + (destX - (gridX * 8192.0));
                         double newDestY = (newGridY * 8192.0) + (destY - (gridY * 8192.0));
 
-                        logMessage("Calculating: new destination ---------> grid (" + std::to_string(newGridX) + ", " + std::to_string(newGridY) +
-                                   ") | coordinates (" + std::to_string(newDestX) + ", " + std::to_string(newDestY) + ")", logFile);
+                        if (!options.silentMode) {
+                            logMessage("Calculating: new destination ---------> grid (" + std::to_string(newGridX) + ", " + std::to_string(newGridY) +
+                                       ") | coordinates (" + std::to_string(newDestX) + ", " + std::to_string(newDestY) + ")", logFile);
+                        }
 
                         // Mark replacement in replacements
                         replacementsFlag = 1;
@@ -1523,8 +1575,10 @@ void processDialoguePositionTranslation(sqlite3* db, ordered_json& inputData, co
                         int newGridX = gridX + offset.offsetX;
                         int newGridY = gridY + offset.offsetY;
 
-                        logMessage("Found: Dialogue 'Position' translation -> grid (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
-                                   ") | coordinates (" + std::to_string(destX) + ", " + std::to_string(destY) + ")", logFile);
+                        if (!options.silentMode) {
+                            logMessage("Found: Dialogue 'Position' translation -> grid (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
+                                       ") | coordinates (" + std::to_string(destX) + ", " + std::to_string(destY) + ")", logFile);
+                        }
 
                         // New calculation keeping the fractional part
                         double newDestX = (newGridX * 8192.0) + (destX - (gridX * 8192.0));
@@ -1597,15 +1651,19 @@ void processScriptPositionCellTranslation(sqlite3* db, ordered_json& inputData, 
                         int newGridX = gridX + offset.offsetX;
                         int newGridY = gridY + offset.offsetY;
 
-                        logMessage("Found: Script 'Position Cell' translation -> grid (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
-                                   ") | coordinates (" + std::to_string(destX) + ", " + std::to_string(destY) + ")", logFile);
+                        if (!options.silentMode) {
+                            logMessage("Found: Script 'Position Cell' translation -> grid (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
+                                       ") | coordinates (" + std::to_string(destX) + ", " + std::to_string(destY) + ")", logFile);
+                        }
 
                         // New calculation keeping the fractional part
                         double newDestX = (newGridX * 8192.0) + (destX - (gridX * 8192.0));
                         double newDestY = (newGridY * 8192.0) + (destY - (gridY * 8192.0));
 
-                        logMessage("Calculating: new destination --------------> grid (" + std::to_string(newGridX) + ", " + std::to_string(newGridY) +
-                                   ") | coordinates (" + std::to_string(newDestX) + ", " + std::to_string(newDestY) + ")", logFile);
+                        if (!options.silentMode) {
+                            logMessage("Calculating: new destination --------------> grid (" + std::to_string(newGridX) + ", " + std::to_string(newGridY) +
+                                       ") | coordinates (" + std::to_string(newDestX) + ", " + std::to_string(newDestY) + ")", logFile);
+                        }
 
                         // Mark replacement in replacements
                         replacementsFlag = 1;
@@ -1680,15 +1738,19 @@ void processDialoguePositionCellTranslation(sqlite3* db, ordered_json& inputData
                         int newGridX = gridX + offset.offsetX;
                         int newGridY = gridY + offset.offsetY;
 
-                        logMessage("Found: Dialogue 'Position Cell' translation -> grid (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
-                                   ") | coordinates (" + std::to_string(destX) + ", " + std::to_string(destY) + ")", logFile);
+                        if (!options.silentMode) {
+                            logMessage("Found: Dialogue 'Position Cell' translation -> grid (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
+                                       ") | coordinates (" + std::to_string(destX) + ", " + std::to_string(destY) + ")", logFile);
+                        }
 
                         // New calculation keeping the fractional part
                         double newDestX = (newGridX * 8192.0) + (destX - (gridX * 8192.0));
                         double newDestY = (newGridY * 8192.0) + (destY - (gridY * 8192.0));
 
-                        logMessage("Calculating: new destination ----------------> grid (" + std::to_string(newGridX) + ", " + std::to_string(newGridY) +
-                                   ") | coordinates (" + std::to_string(newDestX) + ", " + std::to_string(newDestY) + ")", logFile);
+                        if (!options.silentMode) {
+                            logMessage("Calculating: new destination ----------------> grid (" + std::to_string(newGridX) + ", " + std::to_string(newGridY) +
+                                       ") | coordinates (" + std::to_string(newDestX) + ", " + std::to_string(newDestY) + ")", logFile);
+                        }
 
                         // Mark replacement in replacements
                         replacementsFlag = 1;
@@ -1759,15 +1821,19 @@ void processScriptPlaceItemTranslation(sqlite3* db, ordered_json& inputData, con
                         int newGridX = gridX + offset.offsetX;
                         int newGridY = gridY + offset.offsetY;
 
-                        logMessage("Found: Script 'Place Item' translation -> grid (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
-                                   ") | coordinates (" + std::to_string(destX) + ", " + std::to_string(destY) + ")", logFile);
+                        if (!options.silentMode) {
+                            logMessage("Found: Script 'Place Item' translation -> grid (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
+                                       ") | coordinates (" + std::to_string(destX) + ", " + std::to_string(destY) + ")", logFile);
+                        }
 
                         // New calculation keeping the fractional part
                         double newDestX = (newGridX * 8192.0) + (destX - (gridX * 8192.0));
                         double newDestY = (newGridY * 8192.0) + (destY - (gridY * 8192.0));
 
-                        logMessage("Calculating: new destination -----------> grid (" + std::to_string(newGridX) + ", " + std::to_string(newGridY) +
-                                   ") | coordinates (" + std::to_string(newDestX) + ", " + std::to_string(newDestY) + ")", logFile);
+                        if (!options.silentMode) {
+                            logMessage("Calculating: new destination -----------> grid (" + std::to_string(newGridX) + ", " + std::to_string(newGridY) +
+                                       ") | coordinates (" + std::to_string(newDestX) + ", " + std::to_string(newDestY) + ")", logFile);
+                        }
 
                         // Mark replacement in replacements
                         replacementsFlag = 1;
@@ -1841,15 +1907,19 @@ void processDialoguePlaceItemTranslation(sqlite3* db, ordered_json& inputData, c
                         int newGridX = gridX + offset.offsetX;
                         int newGridY = gridY + offset.offsetY;
 
-                        logMessage("Found: Dialogue 'Place Item' translation -> grid (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
-                                   ") | coordinates (" + std::to_string(destX) + ", " + std::to_string(destY) + ")", logFile);
+                        if (!options.silentMode) {
+                            logMessage("Found: Dialogue 'Place Item' translation -> grid (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
+                                       ") | coordinates (" + std::to_string(destX) + ", " + std::to_string(destY) + ")", logFile);
+                        }
 
                         // New calculation keeping the fractional part
                         double newDestX = (newGridX * 8192.0) + (destX - (gridX * 8192.0));
                         double newDestY = (newGridY * 8192.0) + (destY - (gridY * 8192.0));
 
-                        logMessage("Calculating: new destination -------------> grid (" + std::to_string(newGridX) + ", " + std::to_string(newGridY) +
-                                   ") | coordinates (" + std::to_string(newDestX) + ", " + std::to_string(newDestY) + ")", logFile);
+                        if (!options.silentMode) {
+                            logMessage("Calculating: new destination -------------> grid (" + std::to_string(newGridX) + ", " + std::to_string(newGridY) +
+                                       ") | coordinates (" + std::to_string(newDestX) + ", " + std::to_string(newDestY) + ")", logFile);
+                        }
 
                         // Mark replacement in replacements
                         replacementsFlag = 1;
@@ -1920,15 +1990,19 @@ void processScriptPlaceItemCellTranslation(sqlite3* db, ordered_json& inputData,
                         int newGridX = gridX + offset.offsetX;
                         int newGridY = gridY + offset.offsetY;
 
-                        logMessage("Found: Script 'Place Item Cell' translation -> grid (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
-                                   ") | coordinates (" + std::to_string(destX) + ", " + std::to_string(destY) + ")", logFile);
+                        if (!options.silentMode) {
+                            logMessage("Found: Script 'Place Item Cell' translation -> grid (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
+                                       ") | coordinates (" + std::to_string(destX) + ", " + std::to_string(destY) + ")", logFile);
+                        }
 
                         // New calculation keeping the fractional part
                         double newDestX = (newGridX * 8192.0) + (destX - (gridX * 8192.0));
                         double newDestY = (newGridY * 8192.0) + (destY - (gridY * 8192.0));
 
-                        logMessage("Calculating: new destination ----------------> grid (" + std::to_string(newGridX) + ", " + std::to_string(newGridY) +
-                                   ") | coordinates (" + std::to_string(newDestX) + ", " + std::to_string(newDestY) + ")", logFile);
+                        if (!options.silentMode) {
+                            logMessage("Calculating: new destination ----------------> grid (" + std::to_string(newGridX) + ", " + std::to_string(newGridY) +
+                                       ") | coordinates (" + std::to_string(newDestX) + ", " + std::to_string(newDestY) + ")", logFile);
+                        }
 
                         // Mark replacement in replacements
                         replacementsFlag = 1;
@@ -2003,15 +2077,19 @@ void processDialoguePlaceItemCellTranslation(sqlite3* db, ordered_json& inputDat
                         int newGridX = gridX + offset.offsetX;
                         int newGridY = gridY + offset.offsetY;
 
-                        logMessage("Found: Dialogue 'Place Item Cell' translation -> grid (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
-                                   ") | coordinates (" + std::to_string(destX) + ", " + std::to_string(destY) + ")", logFile);
+                        if (!options.silentMode) {
+                            logMessage("Found: Dialogue 'Place Item Cell' translation -> grid (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
+                                       ") | coordinates (" + std::to_string(destX) + ", " + std::to_string(destY) + ")", logFile);
+                        }
 
                         // New calculation keeping the fractional part
                         double newDestX = (newGridX * 8192.0) + (destX - (gridX * 8192.0));
                         double newDestY = (newGridY * 8192.0) + (destY - (gridY * 8192.0));
 
-                        logMessage("Calculating: new destination ------------------> grid (" + std::to_string(newGridX) + ", " + std::to_string(newGridY) +
-                                   ") | coordinates (" + std::to_string(newDestX) + ", " + std::to_string(newDestY) + ")", logFile);
+                        if (!options.silentMode) {
+                            logMessage("Calculating: new destination ------------------> grid (" + std::to_string(newGridX) + ", " + std::to_string(newGridY) +
+                                       ") | coordinates (" + std::to_string(newDestX) + ", " + std::to_string(newDestY) + ")", logFile);
+                        }
 
                         // Mark replacement in replacements
                         replacementsFlag = 1;
@@ -2045,7 +2123,7 @@ void processDialoguePlaceItemCellTranslation(sqlite3* db, ordered_json& inputDat
 }
 
 // Function to search and update the translation block inside the references object
-void processTranslation(ordered_json& jsonData, const GridOffset& offset, int& replacementsFlag, std::ofstream& logFile) {
+void processTranslation(ordered_json& jsonData, const GridOffset& offset, int& replacementsFlag, const ProgramOptions& options, std::ofstream& logFile) {
     // Check if the 'references' key exists and is an array
     if (!jsonData.contains("references") || !jsonData["references"].is_array()) {
             logMessage("References key is missing or is not an array in JSON.", logFile);
@@ -2066,12 +2144,17 @@ void processTranslation(ordered_json& jsonData, const GridOffset& offset, int& r
             reference["translation"].is_array() &&
             reference["translation"].size() >= 2) {
 
-            logMessage("Processing: " + reference.value("id", "Unknown ID"), logFile);
+            if (!options.silentMode) {
+                logMessage("Processing: " + reference.value("id", "Unknown ID"), logFile);
+            }
 
             // Log the original translation values before update
             double originalX = reference["translation"][0].get<double>();
             double originalY = reference["translation"][1].get<double>();
-            logMessage("Found reference coordinates -> X = " + std::to_string(originalX) + ", Y = " + std::to_string(originalY), logFile);
+
+            if (!options.silentMode) {
+                logMessage("Found reference coordinates -> X = " + std::to_string(originalX) + ", Y = " + std::to_string(originalY), logFile);
+            }
 
             // Apply the offset to the X and Y values (multiplied by 8192 for scaling)
             reference["translation"][0] = originalX + offset.offsetX * 8192;
@@ -2083,10 +2166,15 @@ void processTranslation(ordered_json& jsonData, const GridOffset& offset, int& r
             // Log the updated translation values after modification
             double updatedX = reference["translation"][0].get<double>();
             double updatedY = reference["translation"][1].get<double>();
-            logMessage("Calculating new coordinates -> X = " + std::to_string(updatedX) + ", Y = " + std::to_string(updatedY), logFile);
+
+            if (!options.silentMode) {
+                logMessage("Calculating new coordinates -> X = " + std::to_string(updatedX) + ", Y = " + std::to_string(updatedY), logFile);
+            }
         }
         else {
-            logMessage("No valid temporary or translation array found in reference: " + reference.value("id", "Unknown ID"), logFile);
+            if (!options.silentMode) {
+                logMessage("No valid temporary or translation array found in reference: " + reference.value("id", "Unknown ID"), logFile);
+            }
         }
     }
 }
@@ -2111,7 +2199,7 @@ void processGridValues(sqlite3* db, ordered_json& inputData, const GridOffset& o
         bool hasDataGrid = item.contains("data") && item["data"].contains("grid") && item["data"]["grid"].is_array();
 
         if (!hasTopLevelGrid && !hasDataGrid) {
-            logMessage("Grid key is missing for type: " + typeName, logFile);
+            logMessage("WARNING - grid key is missing for type: " + typeName, logFile);
             continue;
         }
 
@@ -2131,8 +2219,10 @@ void processGridValues(sqlite3* db, ordered_json& inputData, const GridOffset& o
             int newGridX = gridX + offset.offsetX;
             int newGridY = gridY + offset.offsetY;
 
-            logMessage("Updating grid coordinates for (" + typeName + "): (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
-                       ") -> (" + std::to_string(newGridX) + ", " + std::to_string(newGridY) + ")", logFile);
+            if (!options.silentMode) {
+                logMessage("Updating grid coordinates for (" + typeName + "): (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
+                           ") -> (" + std::to_string(newGridX) + ", " + std::to_string(newGridY) + ")", logFile);
+            }
 
             // Update the grid coordinates in the data
             if (hasTopLevelGrid) {
@@ -2146,7 +2236,7 @@ void processGridValues(sqlite3* db, ordered_json& inputData, const GridOffset& o
 
             // If the type is "Cell", call the processTranslation function to adjust translations
             if (typeName == "Cell") {
-                processTranslation(item, offset, replacementsFlag, logFile);
+                processTranslation(item, offset, replacementsFlag, options, logFile);
             }
 
             // Mark that a replacement has been made
