@@ -629,11 +629,11 @@ void processScriptAiEscortTranslation(sqlite3* db, ordered_json& inputData, cons
 
                         // Form the updated command string
                         std::ostringstream formattedCommand;
-                        formattedCommand << std::fixed << std::setprecision(3);  // Set precision
+                        formattedCommand << std::fixed << std::setprecision(3);
                         formattedCommand << commandType << ", " << actorID << ", " << duration << ", "
                                          << newDestX << ", " << newDestY << ", " << destZ;
 
-                        if (!resetValue.empty()) { // Add Reset if it exists
+                        if (!resetValue.empty()) {
                             formattedCommand << ", " << resetValue;
                         }
 
@@ -719,11 +719,11 @@ void processDialogueAiEscortTranslation(sqlite3* db, ordered_json& inputData, co
 
                         // Form the updated command string
                         std::ostringstream formattedCommand;
-                        formattedCommand << std::fixed << std::setprecision(3);  // Set precision
+                        formattedCommand << std::fixed << std::setprecision(3);
                         formattedCommand << commandType << ", " << actorID << ", " << duration << ", "
                                          << newDestX << ", " << newDestY << ", " << destZ;
 
-                        if (!resetValue.empty()) { // Add Reset if it exists
+                        if (!resetValue.empty()) {
                             formattedCommand << ", " << resetValue;
                         }
 
@@ -808,11 +808,11 @@ void processScriptAiEscortCellTranslation(sqlite3* db, ordered_json& inputData, 
 
                         // Form the updated command string
                         std::ostringstream formattedCommand;
-                        formattedCommand << std::fixed << std::setprecision(3);  // Set precision
+                        formattedCommand << std::fixed << std::setprecision(3);
                         formattedCommand << commandType << ", " << actorID << ", " << cellID << ", " << duration << ", "
                                          << newDestX << ", " << newDestY << ", " << destZ;
 
-                        if (!resetValue.empty()) { // Add Reset if it exists
+                        if (!resetValue.empty()) {
                             formattedCommand << ", " << resetValue;
                         }
 
@@ -899,11 +899,11 @@ void processDialogueAiEscortCellTranslation(sqlite3* db, ordered_json& inputData
 
                         // Form the updated command string
                         std::ostringstream formattedCommand;
-                        formattedCommand << std::fixed << std::setprecision(3);  // Set precision
+                        formattedCommand << std::fixed << std::setprecision(3);
                         formattedCommand << commandType << ", " << actorID << ", " << cellID << ", " << duration << ", "
                                          << newDestX << ", " << newDestY << ", " << destZ;
 
-                        if (!resetValue.empty()) { // Add Reset if it exists
+                        if (!resetValue.empty()) {
                             formattedCommand << ", " << resetValue;
                         }
 
@@ -987,11 +987,11 @@ void processScriptAiFollowTranslation(sqlite3* db, ordered_json& inputData, cons
 
                         // Form the updated command string
                         std::ostringstream formattedCommand;
-                        formattedCommand << std::fixed << std::setprecision(3);  // Set precision
+                        formattedCommand << std::fixed << std::setprecision(3);
                         formattedCommand << commandType << ", " << actorID << ", " << duration << ", "
                                          << newDestX << ", " << newDestY << ", " << destZ;
 
-                        if (!resetValue.empty()) { // Add Reset if it exists
+                        if (!resetValue.empty()) {
                             formattedCommand << ", " << resetValue;
                         }
 
@@ -1077,11 +1077,11 @@ void processDialogueAiFollowTranslation(sqlite3* db, ordered_json& inputData, co
 
                         // Form the updated command string
                         std::ostringstream formattedCommand;
-                        formattedCommand << std::fixed << std::setprecision(3);  // Set precision
+                        formattedCommand << std::fixed << std::setprecision(3);
                         formattedCommand << commandType << ", " << actorID << ", " << duration << ", "
                                          << newDestX << ", " << newDestY << ", " << destZ;
 
-                        if (!resetValue.empty()) { // Add Reset if it exists
+                        if (!resetValue.empty()) {
                             formattedCommand << ", " << resetValue;
                         }
 
@@ -1165,11 +1165,11 @@ void processScriptAiFollowCellTranslation(sqlite3* db, ordered_json& inputData, 
 
                         // Form the updated command string
                         std::ostringstream formattedCommand;
-                        formattedCommand << std::fixed << std::setprecision(3);  // Set precision
+                        formattedCommand << std::fixed << std::setprecision(3);
                         formattedCommand << commandType << ", " << actorID << ", " << cellID << ", " << duration << ", "
                                          << newDestX << ", " << newDestY << ", " << destZ;
 
-                        if (!resetValue.empty()) { // Add Reset if it exists
+                        if (!resetValue.empty()) {
                             formattedCommand << ", " << resetValue;
                         }
 
@@ -1256,11 +1256,11 @@ void processDialogueAiFollowCellTranslation(sqlite3* db, ordered_json& inputData
 
                         // Form the updated command string
                         std::ostringstream formattedCommand;
-                        formattedCommand << std::fixed << std::setprecision(3);  // Set precision
+                        formattedCommand << std::fixed << std::setprecision(3);
                         formattedCommand << commandType << ", " << actorID << ", " << cellID << ", " << duration << ", "
                                          << newDestX << ", " << newDestY << ", " << destZ;
 
-                        if (!resetValue.empty()) { // Add Reset if it exists
+                        if (!resetValue.empty()) {
                             formattedCommand << ", " << resetValue;
                         }
 
@@ -1342,10 +1342,10 @@ void processScriptAiTravelTranslation(sqlite3* db, ordered_json& inputData, cons
 
                         // Form the updated command string
                         std::ostringstream formattedCommand;
-                        formattedCommand << std::fixed << std::setprecision(3);  // Set precision
+                        formattedCommand << std::fixed << std::setprecision(3);
                         formattedCommand << commandType << ", " << newDestX << ", " << newDestY << ", " << destZ;
 
-                        if (!resetValue.empty()) { // Add Reset if it exists
+                        if (!resetValue.empty()) {
                             formattedCommand << ", " << resetValue;
                         }
 
@@ -1640,7 +1640,7 @@ void processScriptPositionCellTranslation(sqlite3* db, ordered_json& inputData, 
                     double destY = std::stod(match[3].str());
                     double destZ = std::stod(match[4].str());
                     double zRot = std::stod(match[5].str());
-                    std::string cellID = match[6].str();  // Cell name (with escaped quotes)
+                    std::string cellID = match[6].str();
 
                     // Round only the integer part for grid coordinates
                     int gridX = static_cast<int>(std::floor(destX / 8192.0));
@@ -1727,7 +1727,7 @@ void processDialoguePositionCellTranslation(sqlite3* db, ordered_json& inputData
                     double destY = std::stod(match[3].str());
                     double destZ = std::stod(match[4].str());
                     double zRot = std::stod(match[5].str());
-                    std::string cellID = match[6].str();  // Cell name (with escaped quotes)
+                    std::string cellID = match[6].str();
 
                     // Round only the integer part for grid coordinates
                     int gridX = static_cast<int>(std::floor(destX / 8192.0));
@@ -2135,7 +2135,7 @@ void processTranslation(ordered_json& jsonData, const GridOffset& offset, int& r
         // Check if the reference is marked as deleted
         if (reference.contains("deleted") && reference["deleted"].get<bool>()) {
             //logMessage("Skipping deleted reference -> " + reference.value("id", "Unknown ID"), logFile);
-            continue; // Skip this reference
+            continue;
         }
 
         // Check if the reference contains "temporary" and "translation", and if translation is an array of at least 2 elements
