@@ -311,7 +311,7 @@ std::vector<std::filesystem::path> getInputFilePaths(const ProgramOptions& optio
         std::filesystem::path filePath;
 
         while (true) {
-            std::cout << "\nEnter full path to your .ESP|ESM or just filename (with extension), if your files is in the same directory\n"
+            std::cout << "\nEnter full path to your .ESP|ESM or just filename (with extension), if your file is in the same directory\n"
                 "with this program: ";
             std::string input;
             std::getline(std::cin, input);
