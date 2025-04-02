@@ -307,21 +307,33 @@ std::vector<std::filesystem::path> getInputFilePaths(const ProgramOptions& optio
     }
     else {
         // Single file mode
+        std::vector<std::filesystem::path> singleResult;
+        std::filesystem::path filePath;
+
         while (true) {
             std::cout << "\nEnter full path to your .ESP|ESM or just filename (with extension), if your files is in the same directory\n"
-                         "with this program: ";
+                "with this program: ";
             std::string input;
             std::getline(std::cin, input);
+            filePath = input;
 
-            result.clear();
-            processPath(input);
+            std::string extension = filePath.extension().string();
+            std::transform(extension.begin(), extension.end(), extension.begin(), ::tolower);
 
-            if (!result.empty()) {
-                return result;
+            if (std::filesystem::exists(filePath) && (extension == ".esp" || extension == ".esm")) {
+                if (!options.silentMode) {
+                    logMessage("Input file found: " + filePath.string(), logFile);
+                }
+                singleResult.push_back(filePath);
+                break;
             }
 
-            logMessage("ERROR - input file not found: check its directory, name and extension!", logFile);
+            if (!options.silentMode) {
+                logMessage("\nERROR - input file not found: check its directory, name and extension!", logFile);
+            }
         }
+
+        return singleResult;
     }
 }
 
