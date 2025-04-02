@@ -26,8 +26,9 @@ using ordered_json = nlohmann::ordered_json;
 
 // Define program metadata constants
 const std::string PROGRAM_NAME = "TES3 Anthology Bloodmoon Converter";
-const std::string PROGRAM_VERSION = "V 1.2.0";
+const std::string PROGRAM_VERSION = "V 1.2.1";
 const std::string PROGRAM_AUTHOR = "by SiberianCrab";
+const std::string PROGRAM_TESTER = "Beta testing by ShulShagana";
 
 // Define the GridOffset structure
 struct GridOffset {
@@ -84,21 +85,22 @@ ProgramOptions parseArguments(int argc, char* argv[]) {
 
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
-        std::transform(arg.begin(), arg.end(), arg.begin(), ::tolower);
+        std::string argLower = arg;
+        std::transform(argLower.begin(), argLower.end(), argLower.begin(), ::tolower);
 
-        if (arg == "--batch" || arg == "-b") {
+        if (argLower == "--batch" || argLower == "-b") {
             options.batchMode = true;
         }
-        else if (arg == "--silent" || arg == "-s") {
+        else if (argLower == "--silent" || argLower == "-s") {
             options.silentMode = true;
         }
-        else if (arg == "--bm-to-ab" || arg == "-1") {
+        else if (argLower == "--bm-to-ab" || argLower == "-1") {
             options.conversionType = 1;
         }
-        else if (arg == "--ab-to-bm" || arg == "-2") {
+        else if (argLower == "--ab-to-bm" || argLower == "-2") {
             options.conversionType = 2;
         }
-        else if (arg == "--help" || arg == "-h") {
+        else if (argLower == "--help" || argLower == "-h") {
             std::cout << "TES3 Anthology Bloodmoon Converter - Help\n"
                       << "=========================================\n\n"
                       << "Usage:\n"
@@ -131,6 +133,8 @@ ProgramOptions parseArguments(int argc, char* argv[]) {
                       << "    & .\\\"TES3 Anthology Bloodmoon Converter.exe\" -1 \"D:\\Modding\\my mod.esp\"\n\n"
                       << "Example Commands:\n"
                       << "  - Convert entire folder:\n"
+                      << "  - Batch mode BM -> AB with manual folder selection:\n"
+                      << "    .\\\"TES3 Refr_Index Converter.exe\" -b -1\n\n"
                       << "    .\\\"TES3 Anthology Bloodmoon Converter.exe\" -b -1 \"C:\\Morrowind\\Data Files\\\"\n\n"
                       << "  - Convert multiple specific files:\n"
                       << "    .\\\"TES3 Anthology Bloodmoon Converter.exe\" -2 \"C:\\Mods\\My Mod RU.esp\" My_Mod.esm\n\n"
@@ -193,136 +197,131 @@ int getUserConversionChoice(std::ofstream& logFile) {
 
 // Function for handling input file path from user with recursive directory search
 std::vector<std::filesystem::path> getInputFilePaths(const ProgramOptions& options, std::ofstream& logFile) {
+    std::vector<std::filesystem::path> result;
+
+    // Helper function to process a single path
+    auto processPath = [&](const std::filesystem::path& path) {
+        try {
+            if (std::filesystem::is_directory(path)) {
+                logMessage("Processing directory: " + path.string(), logFile);
+                for (const auto& entry : std::filesystem::recursive_directory_iterator(path)) {
+                    if (entry.is_regular_file()) {
+                        std::string ext = entry.path().extension().string();
+                        std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+
+                        if ((ext == ".esp" || ext == ".esm") && !hasConversionPrefix(entry.path())) {
+                            result.push_back(entry.path());
+                        }
+                    }
+                }
+            }
+            else if (std::filesystem::exists(path)) {
+                std::string ext = path.extension().string();
+                std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+
+                if ((ext == ".esp" || ext == ".esm") && !hasConversionPrefix(path)) {
+                    result.push_back(path);
+                }
+                else if (!options.silentMode) {
+                    logMessage("WARNING - input file has invalid extension: " + path.string(), logFile);
+                }
+            }
+            else if (!options.silentMode) {
+                logMessage("WARNING - input path not found: " + path.string(), logFile);
+            }
+        }
+        catch (const std::exception& e) {
+            logMessage("ERROR processing path " + path.string() + ": " + e.what(), logFile);
+        }
+        };
+
+    // Process command line arguments if any
     if (!options.inputFiles.empty()) {
         logMessage("Using files from command line arguments:", logFile);
-        for (const auto& file : options.inputFiles) {
-            logMessage("  " + file.string(), logFile);
+        for (const auto& path : options.inputFiles) {
+            processPath(path);
         }
-        return options.inputFiles;
+
+        if (!options.silentMode && !result.empty()) {
+            logMessage("Found " + std::to_string(result.size()) + " valid input files:", logFile);
+            for (const auto& file : result) {
+                logMessage("  " + file.string(), logFile);
+            }
+        }
+        return result;
     }
 
     // Interactive mode
     if (options.batchMode) {
         while (true) {
-            std::vector<std::filesystem::path> filePaths;
-
             std::cout << "\nEnter full paths to your .ESP|ESM or just filenames (with extension), if your files is in the same directory\n"
                          "with this program (separated by spaces, paths and filenames with spaces must be quoted): \n> ";
             std::string input;
             std::getline(std::cin, input);
 
-            // Helper function to parse quoted paths
-            auto parseQuotedPaths = [](const std::string& input) -> std::vector<std::string> {
-                std::vector<std::string> paths;
-                bool inQuotes = false;
-                std::string currentPath;
+            // Parse quoted paths
+            bool inQuotes = false;
+            std::string currentPath;
+            std::vector<std::string> pathStrings;
 
-                for (char c : input) {
-                    if (c == '\"') {
-                        inQuotes = !inQuotes;
-                        if (!inQuotes && !currentPath.empty()) {
-                            paths.push_back(currentPath);
-                            currentPath.clear();
-                        }
-                    }
-                    else if (c == ' ' && !inQuotes) {
-                        if (!currentPath.empty()) {
-                            paths.push_back(currentPath);
-                            currentPath.clear();
-                        }
-                    }
-                    else {
-                        currentPath += c;
+            for (char c : input) {
+                if (c == '\"') {
+                    inQuotes = !inQuotes;
+                    if (!inQuotes && !currentPath.empty()) {
+                        pathStrings.push_back(currentPath);
+                        currentPath.clear();
                     }
                 }
-
-                if (!currentPath.empty()) {
-                    paths.push_back(currentPath);
+                else if (c == ' ' && !inQuotes) {
+                    if (!currentPath.empty()) {
+                        pathStrings.push_back(currentPath);
+                        currentPath.clear();
+                    }
                 }
-
-                return paths;
-                };
-
-            // Parse input paths
-            std::vector<std::string> pathStrings = parseQuotedPaths(input);
+                else {
+                    currentPath += c;
+                }
+            }
+            if (!currentPath.empty()) {
+                pathStrings.push_back(currentPath);
+            }
 
             // Process each path
+            result.clear();
             for (const auto& pathStr : pathStrings) {
-                if (pathStr.empty()) continue;
-
-                std::filesystem::path path(pathStr);
-
-                // Check if path is a directory or file
-                if (std::filesystem::is_directory(path)) {
-                    // Recursive directory iterator for searching in subdirectories
-                    for (const auto& entry : std::filesystem::recursive_directory_iterator(path)) {
-                        if (entry.is_regular_file()) {
-                            std::string extension = entry.path().extension().string();
-                            std::transform(extension.begin(), extension.end(), extension.begin(), ::tolower);
-
-                            // Skip CONV_ prefixed files and invalid extensions
-                            if ((extension == ".esp" || extension == ".esm") && !hasConversionPrefix(entry.path())) {
-                                filePaths.push_back(entry.path());
-                            }
-                        }
-                    }
-                }
-                else if (std::filesystem::exists(path)) {
-                    std::string extension = path.extension().string();
-                    std::transform(extension.begin(), extension.end(), extension.begin(), ::tolower);
-
-                    if ((extension == ".esp" || extension == ".esm") && !hasConversionPrefix(path)) {
-                        filePaths.push_back(path);
-                    }
-                    else if (!options.silentMode) {
-                        logMessage("\nWARNING - input file has invalid extension: " + path.string(), logFile);
-                    }
-                }
-                else if (!options.silentMode) {
-                    logMessage("\nWARNING - input path not found: " + path.string(), logFile);
+                if (!pathStr.empty()) {
+                    processPath(pathStr);
                 }
             }
 
-            if (!filePaths.empty()) {
-                logMessage("Input files found (" + std::to_string(filePaths.size()) + "):", logFile);
-                for (const auto& path : filePaths) {
+            if (!result.empty()) {
+                logMessage("Input files found (" + std::to_string(result.size()) + "):", logFile);
+                for (const auto& path : result) {
                     logMessage("  " + path.string(), logFile);
                 }
-                return filePaths;
+                return result;
             }
 
-            logMessage("\nERROR - input files not found: check their directory, names and extensions!", logFile);
+            logMessage("ERROR - input files not found: check their directory, names and extensions!", logFile);
         }
     }
     else {
         // Single file mode
-        std::vector<std::filesystem::path> result;
-        std::filesystem::path filePath;
-
         while (true) {
             std::cout << "\nEnter full path to your .ESP|ESM or just filename (with extension), if your files is in the same directory\n"
                          "with this program: ";
             std::string input;
             std::getline(std::cin, input);
-            filePath = input;
 
-            std::string extension = filePath.extension().string();
-            std::transform(extension.begin(), extension.end(), extension.begin(), ::tolower);
+            result.clear();
+            processPath(input);
 
-            if (std::filesystem::exists(filePath) && (extension == ".esp" || extension == ".esm")) {
-                if (!options.silentMode) {
-                    logMessage("Input file found: " + filePath.string(), logFile);
-                }
-                result.push_back(filePath);
-                break;
+            if (!result.empty()) {
+                return result;
             }
 
-            if (!options.silentMode) {
-                logMessage("\nERROR - input file not found: check its directory, name and extension!", logFile);
-            }
+            logMessage("ERROR - input file not found: check its directory, name and extension!", logFile);
         }
-
-        return result;
     }
 }
 
@@ -2292,7 +2291,8 @@ int main(int argc, char* argv[]) {
     ProgramOptions options = parseArguments(argc, argv);
 
     // Display program information
-    std::cout << PROGRAM_NAME << "\n" << PROGRAM_VERSION << "\n" << PROGRAM_AUTHOR << "\n\n";
+    std::cout << PROGRAM_NAME << "\n" << PROGRAM_VERSION << "\n"
+              << PROGRAM_AUTHOR << "\n\n" << PROGRAM_TESTER << "\n\n";
 
     // Log file initialisation
     std::ofstream logFile("tes3_ab.log", std::ios::app);
