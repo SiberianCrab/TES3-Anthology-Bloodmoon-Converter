@@ -14,6 +14,7 @@
 #include <vector>
 #include <memory>
 #include <chrono>
+#include <functional>
 
 #include <cctype>
 #include <cstdlib>
@@ -401,13 +402,12 @@ std::pair<bool, std::unordered_set<int>> checkDependencyOrder(const ordered_json
     return { false, {} };
 }
 
-// Custom hash function for std::pair<int, int>
+// Custom hash function
 struct PairHash {
-    template <typename T1, typename T2>
-    std::size_t operator()(const std::pair<T1, T2>& p) const {
-        auto hash1 = std::hash<T1>{}(p.first);
-        auto hash2 = std::hash<T2>{}(p.second);
-        return hash1 ^ (hash2 << 1);
+    std::size_t operator()(const std::pair<int, int>& p) const {
+        std::size_t hash1 = std::hash<int>{}(p.first);
+        std::size_t hash2 = std::hash<int>{}(p.second);
+        return hash1 ^ (hash2 + 0x9e3779b9 + (hash1 << 6) + (hash1 >> 2));
     }
 };
 
@@ -2310,9 +2310,16 @@ bool saveJsonToFile(const std::filesystem::path& jsonImportPath, const ordered_j
 
 // Function to convert the .JSON file to .ESP|ESM
 bool convertJsonToEsp(const std::filesystem::path& jsonImportPath, const std::filesystem::path& espFilePath, std::ofstream& logFile) {
-    std::string command = "tes3conv.exe \"" + jsonImportPath.string() + "\" \"" + espFilePath.string() + "\"";
-        if (std::system(command.c_str()) != 0) return false;
-            logMessage("Conversion to .ESP|ESM successful: " + espFilePath.string() + "\n", logFile);
+    std::ostringstream command;
+    command << "tes3conv.exe "
+        << std::quoted(jsonImportPath.string()) << " "
+        << std::quoted(espFilePath.string());
+
+    if (std::system(command.str().c_str()) != 0) {
+        return false;
+    }
+
+    logMessage("Conversion to .ESP|ESM successful: " + espFilePath.string() + "\n", logFile);
     return true;
 }
 
@@ -2329,9 +2336,10 @@ int main(int argc, char* argv[]) {
     std::ofstream logFile("tes3_ab.log", std::ios::app);
     if (!logFile) {
         std::cerr << "ERROR - failed to open log file!\n\n"
-                     "Press Enter to exit...";
+                  << "Press Enter to exit...";
         std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-        std::exit(EXIT_FAILURE);
+        logFile.close();
+        return EXIT_FAILURE;
     }
 
     // Clear log file
@@ -2420,9 +2428,28 @@ int main(int argc, char* argv[]) {
             logMessage("Conversion to .JSON successful: " + jsonImportPath.string(), logFile);
 
             // Load the generated JSON file
-            std::ifstream inputFile(jsonImportPath);
+            std::ifstream inputFile(jsonImportPath, std::ios::binary);
+            if (!inputFile.is_open()) {
+                logMessage("ERROR - failed to open JSON file: " + jsonImportPath.string(), logFile);
+                continue;
+            }
+
+            inputFile.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+
             ordered_json inputData;
-            inputFile >> inputData;
+            try {
+                inputFile >> inputData;
+
+                if (inputData.is_discarded()) {
+                    logMessage("ERROR - parsed JSON is invalid or empty: " + jsonImportPath.string(), logFile);
+                    continue;
+                }
+            }
+            catch (const std::exception& e) {
+                logMessage("ERROR - failed to parse JSON (" + jsonImportPath.string() + "): " + e.what(), logFile);
+                continue;
+            }
+
             inputFile.close();
 
             // Check the dependency order
