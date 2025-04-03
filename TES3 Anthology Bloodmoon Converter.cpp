@@ -106,52 +106,77 @@ ProgramOptions parseArguments(int argc, char* argv[]) {
                       << "Usage:\n"
                       << "  .\\\"TES3 Anthology Bloodmoon Converter.exe\" [OPTIONS] [TARGETS]\n\n"
                       << "Options:\n"
-                      << "  -b, --batch      Enable batch mode (auto-accept all changes)\n"
-                      << "  -s, --silent     Suppress non-critical messages\n"
+                      << "  -b, --batch      Enable batch mode (required when processing multiple files)\n"
+                      << "  -s, --silent     Suppress non-critical messages (faster conversion)\n"
                       << "  -1, --bm-to-ab   Convert Bloodmoon -> Anthology Bloodmoon\n"
                       << "  -2, --ab-to-bm   Convert Anthology Bloodmoon -> Bloodmoon\n"
                       << "  -h, --help       Show this help message\n\n"
-                      << "Target Formats:\n"
-                      << "  - Directory (recursive processing):\n"
+                      << "Target Formats:\n\n"
+                      << "  Single File (works without batch mode):\n"
+                      << "    \"mod-in-the-same-folder.esp\"\n"
+                      << "    \"C:\\Morrowind\\Data Files\\mod.esm\"\n\n"
+                      << "  Multiple Files (requires -b batch mode):\n"
+                      << "    \"file1.esp;file2.esm;file 3.esp\"\n"
+                      << "    \"D:\\Mods\\mod.esp;C:\\Morrowind\\Data Files\\Master mod.esm;Mod-in-the-same-folder.esp\"\n\n"
+                      << "  Entire Directory (batch mode, recursive processing):\n"
                       << "    \"C:\\Morrowind\\Data Files\\\"\n"
                       << "    .\\Data\\  (relative path)\n\n"
-                      << "  - Single/Multiple Files:\n"
-                      << "    file.esp\n"
-                      << "    \"file with spaces.esm\"\n"
-                      << "    file1.esp file2.esm \"file 3.esp\"\n\n"
-                      << "Path Handling Rules:\n"
-                      << "  - Always quote paths with spaces\n"
-                      << "  - Relative paths start from program's directory\n\n"
-                      << "Wildcards Support:\n"
-                      << "  - CMD: Only current folder (*.esp)\n"
-                      << "  - PowerShell (recommended for recursive):\n"
-                      << "    & .\\\"TES3 Anthology Bloodmoon Converter.exe\" -1 (Get-ChildItem -Recurse -Filter \"*.esp\").FullName\n\n"
-                      << "Shell Specifics:\n"
-                      << "  - CMD:\n"
-                      << "    .\\\"TES3 Anthology Bloodmoon Converter.exe\" -1 \"C:\\Mods\\file.esp\"\n\n"
-                      << "  - PowerShell:\n"
-                      << "    & .\\\"TES3 Anthology Bloodmoon Converter.exe\" -1 \"D:\\Modding\\my mod.esp\"\n\n"
-                      << "Example Commands:\n"
-                      << "  - Convert entire folder:\n"
-                      << "  - Batch mode BM -> AB with manual folder selection:\n"
-                      << "    .\\\"TES3 Refr_Index Converter.exe\" -b -1\n\n"
-                      << "    .\\\"TES3 Anthology Bloodmoon Converter.exe\" -b -1 \"C:\\Morrowind\\Data Files\\\"\n\n"
-                      << "  - Convert multiple specific files:\n"
-                      << "    .\\\"TES3 Anthology Bloodmoon Converter.exe\" -2 \"C:\\Mods\\My Mod RU.esp\" My_Mod.esm\n\n"
-                      << "  - Silent mode with PowerShell:\n"
-                      << "    & .\\\"TES3 Anthology Bloodmoon Converter.exe\" -s -1 (Get-ChildItem -Recurse -Filter \"*_RU.esp\").FullName\n\n";
+                      << "Important Notes:\n\n"
+                      << "  Supported:\n"
+                      << "    - ASCII-only file paths (English letters, numbers, standard symbols)\n"
+                      << "    - Both absolute (C:\\...) and relative (.\\Data\\...) paths\n\n"
+                      << "  Not Supported:\n"
+                      << "    - Paths containing non-ASCII characters (e.g., Cyrillic, Chinese, special symbols)\n"
+                      << "    - Wildcards (*, ?) in CMD (works better in PowerShell)\n\n"
+                      << "  Solution for Non-ASCII Paths:\n"
+                      << "    If your files are in a folder with non-ASCII characters (e.g., C:\\Игры\\Morrowind\\),\n"
+                      << "    move them to a folder with only English characters (C:\\Games\\Morrowind\\.\n\n"
+                      << "Shell Compatibility:\n\n"
+                      << "  PowerShell (Recommended):\n"
+                      << "    - Fully supports batch processing, recursive search, and wildcards\n"
+                      << "    - Example command:\n"
+                      << "      & .\\\"TES3 Anthology Bloodmoon Converter.exe\" -1 \"C:\\Morrowind\\Data Files\\mod.esp\"\n\n"
+                      << "  CMD (Limited Support):\n"
+                      << "    - Does not support recursive file selection with wildcards\n"
+                      << "    - Example command:\n"
+                      << "      .\\\"TES3 Anthology Bloodmoon Converter.exe\" -1 \"C:\\Morrowind\\Data Files\\mod.esp\"\n\n"
+                      << "Wildcard Support:\n\n"
+                      << "  PowerShell (Recommended for Bulk Processing):\n"
+                      << "    - Convert all .esp files recursively in the current folder:\n"
+                      << "      & .\\\"TES3 Anthology Bloodmoon Converter.exe\" -b (Get-ChildItem -Recurse -Filter \"*.esp\").FullName\n\n"
+                      << "    - Convert all .esp files only in \"C:\\Mods\\\" (without subfolders):\n"
+                      << "      & .\\\"TES3 Anthology Bloodmoon Converter.exe\" -b (Get-ChildItem -Path \"C:\\Mods\\\" -Filter \"*.esp\").FullName\n\n"
+                      << "  CMD (Limited Wildcard Support, No Recursion):\n"
+                      << "    - Convert all .esp files in current folder:\n"
+                      << "      for %f in (\"*.esp\") do \"TES3 Anthology Bloodmoon Converter.exe\" -b -2 \"%~f\"\n\n"
+                      << "    - Convert all .esp files in target folder:\n"
+                      << "      for %f in (\"C:\\Mods\\*.esp\") do \"TES3 Anthology Bloodmoon Converter.exe\" -b -2 \"%~f\"\n\n"
+                      << "Example Commands:\n\n"
+                      << "  Convert an entire folder:\n"
+                      << "    & .\\\"TES3 Anthology Bloodmoon Converter.exe\" -b -1 \"C:\\Morrowind\\Data Files\\\"\n\n"
+                      << "  Convert multiple specific files:\n"
+                      << "    & .\\\"TES3 Anthology Bloodmoon Converter.exe\" -b -2 \"D:\\Mods\\mod.esp;Mod-in-the-same-folder.esp\"\n\n"
+                      << "  Convert all files starting with 'RR_' in a folder:\n"
+                      << "    & .\\\"TES3 Anthology Bloodmoon Converter.exe\" -b (Get-ChildItem -Path \"C:\\Morrowind\\Data Files\\\" -Recurse -Filter \"RR_*.esp\").FullName\n";
 
             std::cout << "\nPress Enter to exit...";
             std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
             exit(0);
         }
         else {
-            std::filesystem::path path(arg);
-            if (std::filesystem::exists(path)) {
-                options.inputFiles.push_back(path);
-            }
-            else {
-                std::cerr << "Warning: Unknown argument or file not found - " << arg << "\n\n";
+            std::string argStr = arg;
+            std::istringstream iss(argStr);
+            std::string pathStr;
+
+            // Spliting argument by semicolons
+            while (std::getline(iss, pathStr, ';')) {
+                std::filesystem::path path(pathStr);
+                if (std::filesystem::exists(path)) {
+                    options.inputFiles.push_back(path);
+                }
+                else {
+                    std::cerr << "Warning: File not found - " << pathStr << "\n\n";
+                }
             }
         }
     }
@@ -254,44 +279,33 @@ std::vector<std::filesystem::path> getInputFilePaths(const ProgramOptions& optio
     // Interactive mode
     if (options.batchMode) {
         while (true) {
-            std::cout << "\nEnter full paths to your .ESP|ESM or just filenames (with extension), if your files is in the same directory\n"
-                         "with this program (separated by spaces, paths and filenames with spaces must be quoted): \n> ";
+            std::cout << "\nEnter:\n"
+                         "- full path to your Mod folder\n"
+                         "- full path to your .ESP|ESM file (with extension)\n"
+                         "- file name of your .ESP|ESM file (with extension), if its in the same directory with this program\n"
+                         "You can mix any combination of the above formats, separating them with semicolons ';'\n";
             std::string input;
             std::getline(std::cin, input);
 
-            // Parse quoted paths
-            bool inQuotes = false;
-            std::string currentPath;
+            // Parse paths separated by semicolons
             std::vector<std::string> pathStrings;
+            std::istringstream iss(input);
+            std::string pathStr;
 
-            for (char c : input) {
-                if (c == '\"') {
-                    inQuotes = !inQuotes;
-                    if (!inQuotes && !currentPath.empty()) {
-                        pathStrings.push_back(currentPath);
-                        currentPath.clear();
-                    }
+            while (std::getline(iss, pathStr, ';')) {
+                // Trim whitespace from both ends
+                pathStr.erase(pathStr.find_last_not_of(" \t") + 1);
+                pathStr.erase(0, pathStr.find_first_not_of(" \t"));
+
+                if (!pathStr.empty()) {
+                    pathStrings.push_back(pathStr);
                 }
-                else if (c == ' ' && !inQuotes) {
-                    if (!currentPath.empty()) {
-                        pathStrings.push_back(currentPath);
-                        currentPath.clear();
-                    }
-                }
-                else {
-                    currentPath += c;
-                }
-            }
-            if (!currentPath.empty()) {
-                pathStrings.push_back(currentPath);
             }
 
             // Process each path
             result.clear();
             for (const auto& pathStr : pathStrings) {
-                if (!pathStr.empty()) {
-                    processPath(pathStr);
-                }
+                processPath(pathStr);
             }
 
             if (!result.empty()) {
@@ -315,6 +329,11 @@ std::vector<std::filesystem::path> getInputFilePaths(const ProgramOptions& optio
                          "with this program: ";
             std::string input;
             std::getline(std::cin, input);
+
+            // Remove start/end spaces
+            input.erase(input.find_last_not_of(" \t") + 1);
+            input.erase(0, input.find_first_not_of(" \t"));
+
             filePath = input;
 
             std::string extension = filePath.extension().string();

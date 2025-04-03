@@ -5,44 +5,75 @@ Usage:
   .\"TES3 Anthology Bloodmoon Converter.exe" [OPTIONS] [TARGETS]
 
 Options:
-  -b, --batch      Enable batch mode (auto-accept all changes)
-  -s, --silent     Suppress non-critical messages
+  -b, --batch      Enable batch mode (required when processing multiple files)
+  -s, --silent     Suppress non-critical messages (faster conversion)
   -1, --bm-to-ab   Convert Bloodmoon -> Anthology Bloodmoon
   -2, --ab-to-bm   Convert Anthology Bloodmoon -> Bloodmoon
   -h, --help       Show this help message
 
 Target Formats:
-  - Directory (recursive processing):
+
+  Single File (works without batch mode):
+    "mod-in-the-same-folder.esp"
+    "C:\Morrowind\Data Files\mod.esm"
+
+  Multiple Files (requires -b batch mode):
+    "file1.esp;file2.esm;file 3.esp"
+    "D:\Mods\mod.esp;C:\Morrowind\Data Files\Master mod.esm;Mod-in-the-same-folder.esp"
+
+  Entire Directory (batch mode, recursive processing):
     "C:\Morrowind\Data Files\"
     .\Data\  (relative path)
 
-  - Single/Multiple Files:
-    file.esp
-    "file with spaces.esm"
-    file1.esp file2.esm "file 3.esp"
+Important Notes:
 
-Path Handling Rules:
-  - Always quote paths with spaces
-  - Relative paths start from program's directory
+  Supported:
+    - ASCII-only file paths (English letters, numbers, standard symbols)
+    - Both absolute (C:\...) and relative (.\Data\...) paths
 
-Wildcards Support:
-  - CMD: Only current folder (*.esp)
-  - PowerShell (recommended for recursive):
-    & .\"TES3 Anthology Bloodmoon Converter.exe" -1 (Get-ChildItem -Recurse -Filter "*.esp").FullName
+  Not Supported:
+    - Paths containing non-ASCII characters (e.g., Cyrillic, Chinese, special symbols)
+    - Wildcards (*, ?) in CMD (works better in PowerShell)
 
-Shell Specifics:
-  - CMD:
-    .\"TES3 Anthology Bloodmoon Converter.exe" -1 "C:\Mods\file.esp"
+  Solution for Non-ASCII Paths:
+    If your files are in a folder with non-ASCII characters (e.g., C:\Èãðû\Morrowind\),
+    move them to a folder with only English characters (C:\Games\Morrowind\).
 
-  - PowerShell:
-    & .\"TES3 Anthology Bloodmoon Converter.exe" -1 "D:\Modding\my mod.esp"
+Shell Compatibility:
+
+  PowerShell (Recommended):
+    - Fully supports batch processing, recursive search, and wildcards
+    - Example command:
+      & .\"TES3 Anthology Bloodmoon Converter.exe" -1 "C:\Morrowind\Data Files\mod.esp"
+
+  CMD (Limited Support):
+    - Does not support recursive file selection with wildcards
+    - Example command:
+      .\"TES3 Anthology Bloodmoon Converter.exe" -1 "C:\Morrowind\Data Files\mod.esp"
+
+Wildcard Support:
+
+  PowerShell (Recommended for Bulk Processing):
+    - Convert all .esp files recursively in the current folder:
+      & .\"TES3 Anthology Bloodmoon Converter.exe" -b (Get-ChildItem -Recurse -Filter "*.esp").FullName
+
+    - Convert all .esp files only in "C:\Mods\" (without subfolders):
+      & .\"TES3 Anthology Bloodmoon Converter.exe" -b (Get-ChildItem -Path "C:\Mods\" -Filter "*.esp").FullName
+
+  CMD (Limited Wildcard Support, No Recursion):
+    - Convert all .esp files in current folder:
+      for %f in ("*.esp") do "TES3 Anthology Bloodmoon Converter.exe" -b -2 "%~f"
+
+    - Convert all .esp files in target folder:
+      for %f in ("C:\Mods\*.esp") do "TES3 Anthology Bloodmoon Converter.exe" -b -2 "%~f"
 
 Example Commands:
-  - Convert entire folder:
-    .\"TES3 Anthology Bloodmoon Converter.exe" -b -1 "C:\Morrowind\Data Files\"
 
-  - Convert multiple specific files:
-    .\"TES3 Anthology Bloodmoon Converter.exe" -2 "C:\Mods\My Mod RU.esp" My_Mod.esm
+  Convert an entire folder:
+    & .\"TES3 Anthology Bloodmoon Converter.exe" -b -1 "C:\Morrowind\Data Files\"
 
-  - Silent mode with PowerShell:
-    & .\"TES3 Anthology Bloodmoon Converter.exe" -s -1 (Get-ChildItem -Recurse -Filter "*_RU.esp").FullName
+  Convert multiple specific files:
+    & .\"TES3 Anthology Bloodmoon Converter.exe" -b -2 "D:\Mods\mod.esp;Mod-in-the-same-folder.esp"
+
+  Convert all files starting with ‘RR_’ in a folder:
+    & .\"TES3 Anthology Bloodmoon Converter.exe" -b (Get-ChildItem -Path "C:\Morrowind\Data Files\" -Recurse -Filter "RR_*.esp").FullName
