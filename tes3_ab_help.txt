@@ -14,15 +14,15 @@ Options:
 Target Formats:
 
   Single File (works without batch mode):
-    "mod-in-the-same-folder.esp"
-    "C:\Morrowind\Data Files\mod.esm"
+    mod-in-the-same-folder.esp
+    C:\Morrowind\Data Files\mod.esm
 
   Multiple Files (requires -b batch mode):
-    "file1.esp;file2.esm;file 3.esp"
-    "D:\Mods\mod.esp;C:\Morrowind\Data Files\Master mod.esm;Mod-in-the-same-folder.esp"
+    file1.esp;file2.esm;file 3.esp
+    D:\Mods\mod.esp;C:\Morrowind\Data Files\Master mod.esm;Mod-in-the-same-folder.esp
 
   Entire Directory (batch mode, recursive processing):
-    "C:\Morrowind\Data Files\"
+    C:\Morrowind\Data Files\
     .\Data\  (relative path)
 
 Important Notes:
