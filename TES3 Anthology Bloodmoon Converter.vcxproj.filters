@@ -24,6 +24,9 @@
     <ClCompile Include="TES3 Anthology Bloodmoon Converter.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="database.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Image Include="Icon.ico">
@@ -39,6 +42,9 @@
     </ClInclude>
     <ClInclude Include="Libraries\json.hpp">
       <Filter>Libraries</Filter>
+    </ClInclude>
+    <ClInclude Include="database.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

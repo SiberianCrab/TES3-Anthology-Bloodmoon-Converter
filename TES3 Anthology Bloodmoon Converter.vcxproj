@@ -142,12 +142,14 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="database.cpp" />
     <ClCompile Include="TES3 Anthology Bloodmoon Converter.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="Icon.ico" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="database.h" />
     <ClInclude Include="Headers\sqlite3.h" />
     <ClInclude Include="Libraries\json.hpp" />
     <ClInclude Include="resource.h" />

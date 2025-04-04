@@ -20,7 +20,7 @@
 #include <cstdlib>
 
 #include <json.hpp>
-#include <sqlite3.h>
+#include "database.h"
 
 // Define an alias for ordered_json type from the nlohmann library
 using ordered_json = nlohmann::ordered_json;
@@ -54,10 +54,9 @@ void logMessage(const std::string& message, std::ofstream& logFile) {
 }
 
 // Function to log errors, close the database and terminate the program
-void logErrorAndExit(sqlite3* db, const std::string& message, std::ofstream& logFile) {
+void logErrorAndExit(const std::string& message, std::ofstream& logFile) {
     logMessage(message, logFile);
 
-    if (db) sqlite3_close(db);
     logFile.close();
 
     std::cout << "Press Enter to exit...";
@@ -454,7 +453,7 @@ void loadCustomGridCoordinates(const std::string& filePath, std::unordered_set<s
 }
 
 // Function to check if a given grid coordinate (gridX, gridY) is valid. It checks both the database and custom user-defined coordinates
-bool isCoordinateValid(sqlite3* db, int gridX, int gridY, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, const ProgramOptions& options, std::ofstream& logFile) {
+bool isCoordinateValid(const Database& db, int gridX, int gridY, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, const ProgramOptions& options, std::ofstream& logFile) {
     // Get the offset from the getGridOffset function
     GridOffset offset = getGridOffset(options.conversionType);
 
@@ -497,7 +496,7 @@ bool isCoordinateValid(sqlite3* db, int gridX, int gridY, const std::unordered_s
 }
 
 // Function to process translations for interior door coordinates
-void processInterriorDoorsTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, const ProgramOptions& options, std::ofstream& logFile) {
+void processInterriorDoorsTranslation(const Database& db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, const ProgramOptions& options, std::ofstream& logFile) {
 
     // Loop through all objects in inputData
     for (auto& cell : inputData) {
@@ -553,7 +552,7 @@ void processInterriorDoorsTranslation(sqlite3* db, ordered_json& inputData, cons
 }
 
 // Function to process NPC Travel Service coordinates
-void processNpcTravelDestinations(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, const ProgramOptions& options, std::ofstream& logFile) {
+void processNpcTravelDestinations(const Database& db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, const ProgramOptions& options, std::ofstream& logFile) {
 
     // Loop through all objects in inputData
     for (auto& npc : inputData) {
@@ -602,7 +601,7 @@ void processNpcTravelDestinations(sqlite3* db, ordered_json& inputData, const Gr
 }
 
 // Function to process Script AI Escort translation
-void processScriptAiEscortTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, std::vector<std::string>& updatedScriptIDs, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, const ProgramOptions& options, std::ofstream& logFile) {
+void processScriptAiEscortTranslation(const Database& db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, std::vector<std::string>& updatedScriptIDs, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, const ProgramOptions& options, std::ofstream& logFile) {
 
     // Regular expression to find AiEscort commands
     std::regex aiEscortRegex(R"((AiEscort)\s*,?\s*((?:\"[^\"]+\")|\S+)\s*,?\s*(\d+)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)(?:\s*,?\s*(\d+))?)",
@@ -695,7 +694,7 @@ void processScriptAiEscortTranslation(sqlite3* db, ordered_json& inputData, cons
 }
 
 // Function to process Dialogue AI Escort translation
-void processDialogueAiEscortTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, const ProgramOptions& options, std::ofstream& logFile) {
+void processDialogueAiEscortTranslation(const Database& db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, const ProgramOptions& options, std::ofstream& logFile) {
 
     // Regular expression to find AiEscort commands
     std::regex aiEscortRegex(R"((AiEscort)\s*,?\s*((?:\"[^\"]+\")|\S+)\s*,?\s*(\d+)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)(?:\s*,?\s*(\d+))?)",
@@ -780,7 +779,7 @@ void processDialogueAiEscortTranslation(sqlite3* db, ordered_json& inputData, co
 }
 
 // Function to process Script AI Escort Cell translation
-void processScriptAiEscortCellTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, std::vector<std::string>& updatedScriptIDs, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, const ProgramOptions& options, std::ofstream& logFile) {
+void processScriptAiEscortCellTranslation(const Database& db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, std::vector<std::string>& updatedScriptIDs, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, const ProgramOptions& options, std::ofstream& logFile) {
 
     // Regular expression to find AiEscortCell commands
     std::regex aiEscortCellRegex(R"((AiEscortCell)\s*,?\s*((?:\"[^\"]+\")|\S+)\s*,?\s*((?:\"[^\"]+\")|\S+)\s*,?\s*(\d+)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)(?:\s*,?\s*(\d+))?)",
@@ -874,7 +873,7 @@ void processScriptAiEscortCellTranslation(sqlite3* db, ordered_json& inputData, 
 }
 
 // Function to process Dialogue AI Escort Cell translation
-void processDialogueAiEscortCellTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, const ProgramOptions& options, std::ofstream& logFile) {
+void processDialogueAiEscortCellTranslation(const Database& db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, const ProgramOptions& options, std::ofstream& logFile) {
 
     // Regular expression to find AiEscortCell commands
     std::regex aiEscortCellRegex(R"((AiEscortCell)\s*,?\s*((?:\"[^\"]+\")|\S+)\s*,?\s*((?:\"[^\"]+\")|\S+)\s*,?\s*(\d+)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)(?:\s*,?\s*(\d+))?)",
@@ -960,7 +959,7 @@ void processDialogueAiEscortCellTranslation(sqlite3* db, ordered_json& inputData
 }
 
 // Function to process Script AI Follow translation
-void processScriptAiFollowTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, std::vector<std::string>& updatedScriptIDs, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, const ProgramOptions& options, std::ofstream& logFile) {
+void processScriptAiFollowTranslation(const Database& db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, std::vector<std::string>& updatedScriptIDs, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, const ProgramOptions& options, std::ofstream& logFile) {
 
     // Regular expression to find AiFollow commands
     std::regex aiFollowRegex(R"((AiFollow)\s*,?\s*((?:\"[^\"]+\")|\S+)\s*,?\s*(\d+)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)(?:\s*,?\s*(\d+))?)",
@@ -1053,7 +1052,7 @@ void processScriptAiFollowTranslation(sqlite3* db, ordered_json& inputData, cons
 }
 
 // Function to process Dialogue AI Follow translation
-void processDialogueAiFollowTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, const ProgramOptions& options, std::ofstream& logFile) {
+void processDialogueAiFollowTranslation(const Database& db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, const ProgramOptions& options, std::ofstream& logFile) {
 
     // Regular expression to find AiFollow commands
     std::regex aiFollowRegex(R"((AiFollow)\s*,?\s*((?:\"[^\"]+\")|\S+)\s*,?\s*(\d+)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)(?:\s*,?\s*(\d+))?)",
@@ -1138,7 +1137,7 @@ void processDialogueAiFollowTranslation(sqlite3* db, ordered_json& inputData, co
 }
 
 // Function to process Script AI Follow Cell translation
-void processScriptAiFollowCellTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, std::vector<std::string>& updatedScriptIDs, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, const ProgramOptions& options, std::ofstream& logFile) {
+void processScriptAiFollowCellTranslation(const Database& db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, std::vector<std::string>& updatedScriptIDs, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, const ProgramOptions& options, std::ofstream& logFile) {
 
     // Regular expression to find AiFollow commands
     std::regex aiFollowCellRegex(R"((AIFollowCell)\s*,?\s*((?:\"[^\"]+\")|\S+)\s*,?\s*((?:\"[^\"]+\")|\S+)\s*,?\s*(\d+)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)(?:\s*,?\s*(\d+))?)",
@@ -1231,7 +1230,7 @@ void processScriptAiFollowCellTranslation(sqlite3* db, ordered_json& inputData, 
 }
 
 // Function to process Dialogue AI Follow Cell translation
-void processDialogueAiFollowCellTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, const ProgramOptions& options, std::ofstream& logFile) {
+void processDialogueAiFollowCellTranslation(const Database& db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, const ProgramOptions& options, std::ofstream& logFile) {
 
     // Regular expression to find AiFollow commands
     std::regex aiFollowCellRegex(R"((AIFollowCell)\s*,?\s*((?:\"[^\"]+\")|\S+)\s*,?\s*((?:\"[^\"]+\")|\S+)\s*,?\s*(\d+)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)(?:\s*,?\s*(\d+))?)",
@@ -1317,7 +1316,7 @@ void processDialogueAiFollowCellTranslation(sqlite3* db, ordered_json& inputData
 }
 
 // Function to process Script AI Travel translation
-void processScriptAiTravelTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, std::vector<std::string>& updatedScriptIDs, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, const ProgramOptions& options, std::ofstream& logFile) {
+void processScriptAiTravelTranslation(const Database& db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, std::vector<std::string>& updatedScriptIDs, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, const ProgramOptions& options, std::ofstream& logFile) {
 
     // Regular expression to find AiTravel commands
     std::regex aiTravelRegex(R"((AiTravel)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)(?:\s*,?\s*(\d+))?)",
@@ -1407,7 +1406,7 @@ void processScriptAiTravelTranslation(sqlite3* db, ordered_json& inputData, cons
 }
 
 // Function to process Dialogue AI Travel translation
-void processDialogueAiTravelTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, const ProgramOptions& options, std::ofstream& logFile) {
+void processDialogueAiTravelTranslation(const Database& db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, const ProgramOptions& options, std::ofstream& logFile) {
 
     // Regular expression to find AiTravel commands
     std::regex aiTravelRegex(R"((AiTravel)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)(?:\s*,?\s*(\d+))?)",
@@ -1485,7 +1484,7 @@ void processDialogueAiTravelTranslation(sqlite3* db, ordered_json& inputData, co
 }
 
 // Function to process Script Position translation
-void processScriptPositionTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, std::vector<std::string>& updatedScriptIDs, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, const ProgramOptions& options, std::ofstream& logFile) {
+void processScriptPositionTranslation(const Database& db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, std::vector<std::string>& updatedScriptIDs, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, const ProgramOptions& options, std::ofstream& logFile) {
 
     // Regular expression to find Position commands
     std::regex positionRegex(R"((Position)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?))",
@@ -1572,7 +1571,7 @@ void processScriptPositionTranslation(sqlite3* db, ordered_json& inputData, cons
 }
 
 // Function to process Dialogue Position translation
-void processDialoguePositionTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, const ProgramOptions& options, std::ofstream& logFile) {
+void processDialoguePositionTranslation(const Database& db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, const ProgramOptions& options, std::ofstream& logFile) {
 
     // Regular expression to find Position commands
     std::regex positionRegex(R"((Position)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?))",
@@ -1645,7 +1644,7 @@ void processDialoguePositionTranslation(sqlite3* db, ordered_json& inputData, co
 }
 
 // Function to process Script PositionCell translation
-void processScriptPositionCellTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, std::vector<std::string>& updatedScriptIDs, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, const ProgramOptions& options, std::ofstream& logFile) {
+void processScriptPositionCellTranslation(const Database& db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, std::vector<std::string>& updatedScriptIDs, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, const ProgramOptions& options, std::ofstream& logFile) {
 
     // Regular expression to find PositionCell commands
     std::regex positionCellRegex(R"((PositionCell)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*((?:\"[^\"]+\")|\S+))",
@@ -1734,7 +1733,7 @@ void processScriptPositionCellTranslation(sqlite3* db, ordered_json& inputData, 
 }
 
 // Function to process Dialogue PositionCell translation
-void processDialoguePositionCellTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, const ProgramOptions& options, std::ofstream& logFile) {
+void processDialoguePositionCellTranslation(const Database& db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, const ProgramOptions& options, std::ofstream& logFile) {
 
     // Regular expression to find PositionCell commands
     std::regex positionCellRegex(R"((PositionCell)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*((?:\"[^\"]+\")|\S+))",
@@ -1815,7 +1814,7 @@ void processDialoguePositionCellTranslation(sqlite3* db, ordered_json& inputData
 }
 
 // Function to process Script PlaceItem translation
-void processScriptPlaceItemTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, std::vector<std::string>& updatedScriptIDs, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, const ProgramOptions& options, std::ofstream& logFile) {
+void processScriptPlaceItemTranslation(const Database& db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, std::vector<std::string>& updatedScriptIDs, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, const ProgramOptions& options, std::ofstream& logFile) {
 
     // Regular expression to find PlaceItem commands
     std::regex placeItemRegex(R"((PlaceItem)\s*,?\s*((?:\"[^\"]+\")|\S+)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?))",
@@ -1903,7 +1902,7 @@ void processScriptPlaceItemTranslation(sqlite3* db, ordered_json& inputData, con
 }
 
 // Function to process Dialogue PlaceItem translation
-void processDialoguePlaceItemTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, const ProgramOptions& options, std::ofstream& logFile) {
+void processDialoguePlaceItemTranslation(const Database& db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, const ProgramOptions& options, std::ofstream& logFile) {
 
     // Regular expression to find PlaceItem commands
     std::regex placeItemRegex(R"((PlaceItem)\s*,?\s*((?:\"[^\"]+\")|\S+)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?))",
@@ -1983,7 +1982,7 @@ void processDialoguePlaceItemTranslation(sqlite3* db, ordered_json& inputData, c
 }
 
 // Function to process Script PlaceItemCell translation
-void processScriptPlaceItemCellTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, std::vector<std::string>& updatedScriptIDs, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, const ProgramOptions& options, std::ofstream& logFile) {
+void processScriptPlaceItemCellTranslation(const Database& db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, std::vector<std::string>& updatedScriptIDs, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, const ProgramOptions& options, std::ofstream& logFile) {
 
     // Regular expression to find PlaceItemCell commands
     std::regex placeItemCellRegex(R"((PlaceItemCell)\s*,?\s*((?:\"[^\"]+\")|\S+)\s*,?\s*((?:\"[^\"]+\")|\S+)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?))",
@@ -2072,7 +2071,7 @@ void processScriptPlaceItemCellTranslation(sqlite3* db, ordered_json& inputData,
 }
 
 // Function to process Dialogue PlaceItemCell translation
-void processDialoguePlaceItemCellTranslation(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, const ProgramOptions& options, std::ofstream& logFile) {
+void processDialoguePlaceItemCellTranslation(const Database& db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, const ProgramOptions& options, std::ofstream& logFile) {
 
     // Regular expression to find PlaceItemCell commands
     std::regex placeItemCellRegex(R"((PlaceItemCell)\s*,?\s*((?:\"[^\"]+\")|\S+)\s*,?\s*((?:\"[^\"]+\")|\S+)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?))",
@@ -2210,7 +2209,7 @@ void processTranslation(ordered_json& jsonData, const GridOffset& offset, int& r
 }
 
 // Function to process coordinates for Cell, Landscape, and PathGrid types
-void processGridValues(sqlite3* db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, const ProgramOptions& options, std::ofstream& logFile) {
+void processGridValues(const Database& db, ordered_json& inputData, const GridOffset& offset, int& replacementsFlag, const std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, const ProgramOptions& options, std::ofstream& logFile) {
 
     // List of supported types
     std::vector<std::string> typeNames = { "Cell", "Landscape", "PathGrid" };
@@ -2350,15 +2349,12 @@ int main(int argc, char* argv[]) {
 
     // Check if the database file exists
     if (!std::filesystem::exists("tes3_ab_cell_x-y_data.db")) {
-        logErrorAndExit(nullptr, "ERROR - database file 'tes3_ab_cell_x-y_data.db' not found!\n", logFile);
+        logErrorAndExit("ERROR - database file 'tes3_ab_cell_x-y_data.db' not found!\n", logFile);
     }
 
-    // Open the database
-    sqlite3* db = nullptr;
-    if (sqlite3_open("tes3_ab_cell_x-y_data.db", &db)) {
-        logErrorAndExit(db, "ERROR - failed to open database: " + std::string(sqlite3_errmsg(db)) + "!\n", logFile);
-    }
+    Database db("tes3_ab_cell_x-y_data.db");
 
+    // Log successful connection if not in silent mode
     if (!options.silentMode) {
         logMessage("Database opened successfully...", logFile);
     }
@@ -2366,7 +2362,7 @@ int main(int argc, char* argv[]) {
     // Check if the custom grid coordinates file exists
     std::filesystem::path customDBFilePath = "tes3_ab_custom_cell_x-y_data.txt";
     if (!std::filesystem::exists(customDBFilePath)) {
-        logErrorAndExit(nullptr, "ERROR - custom grid coordinates file 'tes3_ab_custom_cell_x-y_data.txt' not found!\n", logFile);
+        logErrorAndExit("ERROR - custom grid coordinates file 'tes3_ab_custom_cell_x-y_data.txt' not found!\n", logFile);
     }
 
     // Open the custom grid coordinates
@@ -2378,9 +2374,9 @@ int main(int argc, char* argv[]) {
 
     // Check if the converter executable exists
     if (!std::filesystem::exists("tes3conv.exe")) {
-        logErrorAndExit(db, "ERROR - tes3conv.exe not found! Please download the latest version from\n"
-                            "github.com/Greatness7/tes3conv/releases and place it in the same directory\n"
-                            "with this program.\n", logFile);
+        logErrorAndExit("ERROR - tes3conv.exe not found! Please download the latest version from\n"
+                        "github.com/Greatness7/tes3conv/releases and place it in the same directory\n"
+                        "with this program.\n", logFile);
     }
 
     if (!options.silentMode) {
@@ -2541,6 +2537,7 @@ int main(int argc, char* argv[]) {
             auto fileDuration = std::chrono::duration_cast<std::chrono::milliseconds>(fileEnd - fileStart);
 
             logMessage("ERROR processing " + pluginImportPath.string() + ": " + e.what(), logFile);
+
             // Clear data in case of error
             updatedScriptIDs.clear();
             continue;
@@ -2554,7 +2551,6 @@ int main(int argc, char* argv[]) {
     logMessage("\nTotal processing time: " + std::to_string(programDuration.count() / 1000.0) + " seconds", logFile);
 
     // Close the database
-    sqlite3_close(db);
     if (!options.silentMode) {
         logMessage("\nThe ending of the words is ALMSIVI", logFile);
         logFile.close();
