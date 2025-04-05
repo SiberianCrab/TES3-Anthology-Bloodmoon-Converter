@@ -2311,8 +2311,8 @@ bool saveJsonToFile(const std::filesystem::path& jsonImportPath, const ordered_j
 bool convertJsonToEsp(const std::filesystem::path& jsonImportPath, const std::filesystem::path& espFilePath, std::ofstream& logFile) {
     std::ostringstream command;
     command << "tes3conv.exe "
-        << std::quoted(jsonImportPath.string()) << " "
-        << std::quoted(espFilePath.string());
+            << std::quoted(jsonImportPath.string()) << " "
+            << std::quoted(espFilePath.string());
 
     if (std::system(command.str().c_str()) != 0) {
         return false;
