@@ -149,7 +149,7 @@
     <Image Include="Icon.ico" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="database.h" />
+    <ClInclude Include="Headers\database.h" />
     <ClInclude Include="Headers\sqlite3.h" />
     <ClInclude Include="Libraries\json.hpp" />
     <ClInclude Include="resource.h" />
