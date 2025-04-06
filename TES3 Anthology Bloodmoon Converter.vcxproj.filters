@@ -13,11 +13,14 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
-    <Filter Include="Libraries">
-      <UniqueIdentifier>{457c4c46-f3bb-4b29-af5a-ae87065d44b9}</UniqueIdentifier>
-    </Filter>
     <Filter Include="DB">
       <UniqueIdentifier>{00864446-e2eb-4792-bb3e-53c047f78044}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Libraries">
+      <UniqueIdentifier>{b89e9a23-30fc-4cb2-b25a-748b0769e3ad}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Help">
+      <UniqueIdentifier>{457c4c46-f3bb-4b29-af5a-ae87065d44b9}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -40,11 +43,11 @@
     <ClInclude Include="Headers\sqlite3.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Headers\database.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="Libraries\json.hpp">
       <Filter>Libraries</Filter>
-    </ClInclude>
-    <ClInclude Include="database.h">
-      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -53,17 +56,17 @@
     </ResourceCompile>
   </ItemGroup>
   <ItemGroup>
-    <CopyFileToFolders Include="Libraries\sqlite3.dll">
-      <Filter>Libraries</Filter>
-    </CopyFileToFolders>
     <CopyFileToFolders Include="DB\tes3_ab_cell_x-y_data.db">
       <Filter>DB</Filter>
     </CopyFileToFolders>
     <CopyFileToFolders Include="DB\tes3_ab_custom_cell_x-y_data.txt">
       <Filter>DB</Filter>
     </CopyFileToFolders>
-    <CopyFileToFolders Include="tes3_ab_help.txt">
-      <Filter>Resource Files</Filter>
+    <CopyFileToFolders Include="Libraries\sqlite3.dll">
+      <Filter>Libraries</Filter>
+    </CopyFileToFolders>
+    <CopyFileToFolders Include="Help\tes3_ab_help.txt">
+      <Filter>Help</Filter>
     </CopyFileToFolders>
   </ItemGroup>
 </Project>
