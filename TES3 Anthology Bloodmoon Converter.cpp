@@ -22,6 +22,13 @@
 #include <json.hpp>
 #include "database.h"
 
+// Define tes3conv for Windows|Linux
+#ifdef _WIN32
+const std::string TES3CONV_COMMAND = "tes3conv.exe";
+#else
+const std::string TES3CONV_COMMAND = "./tes3conv";
+#endif
+
 // Define an alias for ordered_json type from the nlohmann library
 using ordered_json = nlohmann::ordered_json;
 
@@ -159,8 +166,11 @@ ProgramOptions parseArguments(int argc, char* argv[]) {
                       << "  Convert all files starting with 'RR_' in a folder:\n"
                       << "    & .\\\"TES3 Anthology Bloodmoon Converter.exe\" -b (Get-ChildItem -Path \"C:\\Morrowind\\Data Files\\\" -Recurse -Filter \"RR_*.esp\").FullName\n";
 
+            #ifndef __linux__
             std::cout << "\nPress Enter to exit...";
             std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+            #endif
+
             exit(0);
         }
         else {
@@ -2310,7 +2320,7 @@ bool saveJsonToFile(const std::filesystem::path& jsonImportPath, const ordered_j
 // Function to convert the .JSON file to .ESP|ESM
 bool convertJsonToEsp(const std::filesystem::path& jsonImportPath, const std::filesystem::path& espFilePath, std::ofstream& logFile) {
     std::ostringstream command;
-    command << "tes3conv.exe "
+    command << TES3CONV_COMMAND << " "
             << std::quoted(jsonImportPath.string()) << " "
             << std::quoted(espFilePath.string());
 
@@ -2373,14 +2383,14 @@ int main(int argc, char* argv[]) {
     }
 
     // Check if the converter executable exists
-    if (!std::filesystem::exists("tes3conv.exe")) {
-        logErrorAndExit("ERROR - tes3conv.exe not found! Please download the latest version from\n"
+    if (!std::filesystem::exists(TES3CONV_COMMAND)) {
+        logErrorAndExit("ERROR - tes3conv not found! Please download the latest version from\n"
                         "github.com/Greatness7/tes3conv/releases and place it in the same directory\n"
                         "with this program.\n", logFile);
     }
 
     if (!options.silentMode) {
-        logMessage("tes3conv.exe found...\n"
+        logMessage("tes3conv found...\n"
                    "Initialisation complete.", logFile);
     }
 
@@ -2416,8 +2426,12 @@ int main(int argc, char* argv[]) {
             std::filesystem::path jsonImportPath = pluginImportPath.parent_path() / (pluginImportPath.stem().string() + ".json");
 
             // Convert the input file to .JSON
-            std::string command = "tes3conv.exe \"" + pluginImportPath.string() + "\" \"" + jsonImportPath.string() + "\"";
-            if (std::system(command.c_str()) != 0) {
+            std::ostringstream convCmd;
+            convCmd << TES3CONV_COMMAND << " "
+                    << std::quoted(pluginImportPath.string()) << " "
+                    << std::quoted(jsonImportPath.string());
+
+            if (std::system(convCmd.str().c_str()) != 0) {
                 logMessage("ERROR - converting to .JSON failed for file: " + pluginImportPath.string(), logFile);
                 continue;
             }
@@ -2555,9 +2569,11 @@ int main(int argc, char* argv[]) {
         logMessage("\nThe ending of the words is ALMSIVI", logFile);
         logFile.close();
 
-        // Wait for user input before exiting
+        // Wait for user input before exiting (Windows)
+        #ifndef __linux__
         std::cout << "\nPress Enter to continue...";
         std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+        #endif
     }
 
     return EXIT_SUCCESS;

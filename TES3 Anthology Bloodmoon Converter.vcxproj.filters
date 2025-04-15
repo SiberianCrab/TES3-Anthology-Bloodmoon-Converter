@@ -46,8 +46,8 @@
     <ClInclude Include="Headers\database.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Libraries\json.hpp">
-      <Filter>Libraries</Filter>
+    <ClInclude Include="Headers\json.hpp">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

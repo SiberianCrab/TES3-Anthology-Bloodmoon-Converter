@@ -150,8 +150,8 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Headers\database.h" />
+    <ClInclude Include="Headers\json.hpp" />
     <ClInclude Include="Headers\sqlite3.h" />
-    <ClInclude Include="Libraries\json.hpp" />
     <ClInclude Include="resource.h" />
   </ItemGroup>
   <ItemGroup>
