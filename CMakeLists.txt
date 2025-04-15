@@ -4,23 +4,55 @@ project(TES3_Anthology_Bloodmoon_Converter)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Disable MSVC warnings
-if (MSVC)
-    add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
+# MSVC-specific settings
+if(MSVC)
+    add_compile_definitions(
+        _CRT_SECURE_NO_WARNINGS
+        _SCL_SECURE_NO_WARNINGS
+    )
+    add_compile_options(/W4 /WX)
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 endif()
 
-# Enable resource file support on Windows
-if (WIN32)
+# Windows-specific configuration
+if(WIN32)
     enable_language(RC)
+    
+    # Resource files
+    set(RESOURCE_FILES
+        "TES3 Anthology Bloodmoon Converter.rc"
+        "resource.h"
+        "Icon.ico"
+    )
+    
+    # Parse version info from RC file
+    if(EXISTS "TES3 Anthology Bloodmoon Converter.rc")
+        file(STRINGS "TES3 Anthology Bloodmoon Converter.rc" RC_VERSION_LINES REGEX "FILEVERSION|PRODUCTVERSION")
+        if(RC_VERSION_LINES)
+        	# Extract version
+            string(REGEX MATCH "FILEVERSION ([0-9]+,[0-9]+,[0-9]+,[0-9]+)" _ ${RC_VERSION_LINES})
+            set(VERSION_STRING "${CMAKE_MATCH_1}")
+            string(REPLACE "," "." VERSION_DOTTED "${VERSION_STRING}")
+            message(STATUS "Detected version from RC file: ${VERSION_DOTTED}")
+            
+            # Set project version variables
+            string(REPLACE "," ";" VERSION_LIST "${VERSION_STRING}")
+            list(GET VERSION_LIST 0 PROJECT_VERSION_MAJOR)
+            list(GET VERSION_LIST 1 PROJECT_VERSION_MINOR)
+            list(GET VERSION_LIST 2 PROJECT_VERSION_PATCH)
+            list(GET VERSION_LIST 3 PROJECT_VERSION_TWEAK)
+        endif()
+    endif()
 endif()
 
-# Main source files
+# Source files
 set(SOURCES
     "TES3 Anthology Bloodmoon Converter.cpp"
     "database.cpp"
+    ${RESOURCE_FILES}
 )
 
-# Header files
+# Headers
 set(HEADERS
     "Headers/database.h"
     "Headers/sqlite3.h"
@@ -30,31 +62,44 @@ set(HEADERS
 # Create executable
 add_executable(tes3_ab_converter ${SOURCES} ${HEADERS})
 
+# Windows-specific icon and version info properties
+if(WIN32)
+    # Set application icon
+    if(EXISTS "Icon.ico")
+        set_target_properties(tes3_ab_converter PROPERTIES
+            RC_ICONS "Icon.ico"
+        )
+    endif()
+    
+    # Set version info
+    if(DEFINED VERSION_STRING)
+        set_target_properties(tes3_ab_converter PROPERTIES
+            VERSION ${VERSION_DOTTED}
+            SOVERSION ${PROJECT_VERSION_MAJOR}
+        )
+    endif()
+endif()
+
 # Include directories
 target_include_directories(tes3_ab_converter PRIVATE 
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/Headers
 )
 
-# Link SQLite3
-if (WIN32)
-    # Look for library in specified path and link
-    find_library(SQLITE3_LIBRARY sqlite3 PATHS "${CMAKE_CURRENT_SOURCE_DIR}/Libraries")
-    if (SQLITE3_LIBRARY)
-        target_link_libraries(tes3_ab_converter PRIVATE ${SQLITE3_LIBRARY})
-    else()
-        message(WARNING "SQLite3 library not found in Libraries directory")
-    endif()
+# SQLite3 linking
+if(WIN32)
+    find_library(SQLITE3_LIBRARY sqlite3 
+        PATHS "${CMAKE_CURRENT_SOURCE_DIR}/Libraries"
+        NO_DEFAULT_PATH
+        REQUIRED
+    )
+    target_link_libraries(tes3_ab_converter PRIVATE ${SQLITE3_LIBRARY})
 else()
     find_package(SQLite3 REQUIRED)
     target_link_libraries(tes3_ab_converter PRIVATE SQLite::SQLite3)
 endif()
 
-# ----------------------------------------------------------
 # Copy required files to output directory after build
-# ----------------------------------------------------------
-
-# List of files to copy alongside the executable
 set(DATA_FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/Libraries/sqlite3.dll"
     "${CMAKE_CURRENT_SOURCE_DIR}/DB/tes3_ab_cell_x-y_data.db"
@@ -62,18 +107,30 @@ set(DATA_FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/Help/tes3_ab_help.txt"
 )
 
-# Add copy command for each file
 foreach(file ${DATA_FILES})
-    # Extract just the filename
-    get_filename_component(filename ${file} NAME)
-    
-    add_custom_command(TARGET tes3_ab_converter POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${file}"
-        "$<TARGET_FILE_DIR:tes3_ab_converter>/${filename}"
-        COMMENT "Copying ${filename} to output directory"
-    )
+    if(EXISTS "${file}")
+        get_filename_component(filename ${file} NAME)
+        add_custom_command(TARGET tes3_ab_converter POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${file}"
+            "$<TARGET_FILE_DIR:tes3_ab_converter>/${filename}"
+            COMMENT "Copying ${filename} to output directory"
+        )
+    else()
+        message(WARNING "File not found: ${file}")
+    endif()
 endforeach()
 
-# Add optional copy target
+# Safe PDB copy for MSVC (works correctly with multi-config generators)
+if(MSVC)
+    add_custom_command(TARGET tes3_ab_converter POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "$<TARGET_PDB_FILE:tes3_ab_converter>"
+            "$<TARGET_FILE_DIR:tes3_ab_converter>/$<TARGET_PDB_FILE_NAME:tes3_ab_converter>"
+        COMMENT "Copying PDB file to output directory (only if exists)"
+        BYPRODUCTS "$<TARGET_PDB_FILE:tes3_ab_converter>"
+    )
+endif()
+
+# Additional copy target
 add_custom_target(copy_files ALL DEPENDS tes3_ab_converter)
