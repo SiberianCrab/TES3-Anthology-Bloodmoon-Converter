@@ -230,31 +230,38 @@ int getUserConversionChoice(std::ofstream& logFile) {
     );
 }
 
-// Function for handling input file path from user with recursive directory search
+// Function for handling input file paths from user with recursive directory search
 std::vector<std::filesystem::path> getInputFilePaths(const ProgramOptions& options, std::ofstream& logFile) {
     std::vector<std::filesystem::path> result;
 
-    // Helper function to process a single path
-    auto processPath = [&](const std::filesystem::path& path) {
-        try {
-            if (std::filesystem::is_directory(path)) {
-                logMessage("Processing directory: " + path.string(), logFile);
-                for (const auto& entry : std::filesystem::recursive_directory_iterator(path)) {
-                    if (entry.is_regular_file()) {
-                        std::string ext = entry.path().extension().string();
-                        std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+    // Helper function to normalize a string path: remove quotes and trim whitespace
+    auto normalizePathStr = [](std::string pathStr) {
+        pathStr.erase(std::remove(pathStr.begin(), pathStr.end(), '\"'), pathStr.end());
+        pathStr.erase(pathStr.find_last_not_of(" \t") + 1);
+        pathStr.erase(0, pathStr.find_first_not_of(" \t"));
+        return pathStr;
+        };
 
-                        if ((ext == ".esp" || ext == ".esm") && !hasConversionPrefix(entry.path())) {
+    // Helper function to check if a path is a valid .esp or .esm file
+    auto isValidModFile = [](const std::filesystem::path& path) {
+        std::string ext = path.extension().string();
+        std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+        return ext == ".esp" || ext == ".esm";
+        };
+
+    // Helper function to process a single path (file or directory)
+    auto tryAddFile = [&](const std::filesystem::path& path) {
+        try {
+            if (std::filesystem::exists(path)) {
+                if (std::filesystem::is_directory(path)) {
+                    logMessage("Processing directory: " + path.string(), logFile);
+                    for (const auto& entry : std::filesystem::recursive_directory_iterator(path)) {
+                        if (entry.is_regular_file() && isValidModFile(entry.path()) && !hasConversionPrefix(entry.path())) {
                             result.push_back(entry.path());
                         }
                     }
                 }
-            }
-            else if (std::filesystem::exists(path)) {
-                std::string ext = path.extension().string();
-                std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-
-                if ((ext == ".esp" || ext == ".esm") && !hasConversionPrefix(path)) {
+                else if (isValidModFile(path) && !hasConversionPrefix(path)) {
                     result.push_back(path);
                 }
                 else if (!options.silentMode) {
@@ -270,99 +277,80 @@ std::vector<std::filesystem::path> getInputFilePaths(const ProgramOptions& optio
         }
         };
 
-    // Process command line arguments if any
-    if (!options.inputFiles.empty()) {
-        logMessage("Using files from command line arguments:", logFile);
-        for (const auto& path : options.inputFiles) {
-            processPath(path);
-        }
-
+    // Helper function to log the list of successfully found files
+    auto logResults = [&]() {
         if (!options.silentMode && !result.empty()) {
             logMessage("Found " + std::to_string(result.size()) + " valid input files:", logFile);
             for (const auto& file : result) {
                 logMessage("  " + file.string(), logFile);
             }
         }
+        };
+
+    // Use input files passed via command line arguments
+    if (!options.inputFiles.empty()) {
+        logMessage("Using files from command line arguments:", logFile);
+        for (const auto& path : options.inputFiles) {
+            tryAddFile(path);
+        }
+        logResults();
         return result;
     }
 
-    // Interactive mode
+    // Helper function to parse user input string into multiple paths
+    auto parseUserInput = [&](const std::string& input) {
+        std::vector<std::string> pathStrings;
+        std::istringstream iss(input);
+        std::string pathStr;
+        while (std::getline(iss, pathStr, ';')) {
+            pathStr = normalizePathStr(pathStr);
+            if (!pathStr.empty()) {
+                pathStrings.push_back(pathStr);
+            }
+        }
+        return pathStrings;
+        };
+
+    // Batch (interactive multi-path) mode
     if (options.batchMode) {
         while (true) {
             std::cout << "\nEnter:\n"
                          "- full path to your Mod folder\n"
                          "- full path to your .ESP|ESM file (with extension)\n"
-                         "- file name of your .ESP|ESM file (with extension), if its in the same directory with this program\n"
+                         "- file name of your .ESP|ESM file (with extension), if it is in the same directory with this program\n"
                          "You can mix any combination of the above formats, separating them with semicolons ';'\n";
             std::string input;
             std::getline(std::cin, input);
 
-            // Parse paths separated by semicolons
-            std::vector<std::string> pathStrings;
-            std::istringstream iss(input);
-            std::string pathStr;
-
-            while (std::getline(iss, pathStr, ';')) {
-                // Trim whitespace from both ends
-                pathStr.erase(pathStr.find_last_not_of(" \t") + 1);
-                pathStr.erase(0, pathStr.find_first_not_of(" \t"));
-
-                if (!pathStr.empty()) {
-                    pathStrings.push_back(pathStr);
-                }
-            }
-
-            // Process each path
             result.clear();
-            for (const auto& pathStr : pathStrings) {
-                processPath(pathStr);
+            for (const auto& pathStr : parseUserInput(input)) {
+                tryAddFile(pathStr);
             }
 
             if (!result.empty()) {
-                logMessage("Input files found (" + std::to_string(result.size()) + "):", logFile);
-                for (const auto& path : result) {
-                    logMessage("  " + path.string(), logFile);
-                }
+                logResults();
                 return result;
             }
 
-            logMessage("ERROR - input files not found: check their directory, names and extensions!", logFile);
+            logMessage("ERROR - input files not found: check their directory, names, and extensions!", logFile);
         }
     }
-    else {
-        // Single file mode
-        std::vector<std::filesystem::path> singleResult;
-        std::filesystem::path filePath;
 
-        while (true) {
-            std::cout << "\nEnter full path to your .ESP|ESM or just filename (with extension), if your file is in the same directory\n"
-                         "with this program: ";
-            std::string input;
-            std::getline(std::cin, input);
+    // Single file mode (one file input via prompt)
+    while (true) {
+        std::cout << "\nEnter full path to your .ESP|ESM or just filename (with extension), if your file is in the same directory\n"
+                     "with this program: ";
+        std::string input;
+        std::getline(std::cin, input);
 
-            // Remove start/end spaces
-            input.erase(input.find_last_not_of(" \t") + 1);
-            input.erase(0, input.find_first_not_of(" \t"));
+        std::filesystem::path filePath = normalizePathStr(input);
 
-            filePath = input;
-
-            std::string extension = filePath.extension().string();
-            std::transform(extension.begin(), extension.end(), extension.begin(), ::tolower);
-
-            if (std::filesystem::exists(filePath) && (extension == ".esp" || extension == ".esm")) {
-                if (!options.silentMode) {
-                    logMessage("Input file found: " + filePath.string(), logFile);
-                }
-                singleResult.push_back(filePath);
-                break;
-            }
-
-            if (!options.silentMode) {
-                logMessage("\nERROR - input file not found: check its directory, name and extension!", logFile);
-            }
+        if (std::filesystem::exists(filePath) && isValidModFile(filePath)) {
+            logMessage("Input file found: " + filePath.string(), logFile);
+            return { filePath };
         }
 
-        return singleResult;
+        logMessage("\nERROR - input file not found: check its directory, name, and extension!", logFile);
     }
 }
 
