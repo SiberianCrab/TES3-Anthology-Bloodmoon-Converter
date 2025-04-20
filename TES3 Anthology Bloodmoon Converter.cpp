@@ -34,7 +34,7 @@ using ordered_json = nlohmann::ordered_json;
 
 // Define program metadata constants
 const std::string PROGRAM_NAME = "TES3 Anthology Bloodmoon Converter";
-const std::string PROGRAM_VERSION = "V 1.2.1";
+const std::string PROGRAM_VERSION = "V 1.2.2";
 const std::string PROGRAM_AUTHOR = "by SiberianCrab";
 const std::string PROGRAM_TESTER = "Beta testing by ShulShagana";
 
