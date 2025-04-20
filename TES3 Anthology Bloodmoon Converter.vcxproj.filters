@@ -51,11 +51,6 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="tes3_ab_converter.rc">
-      <Filter>Resource Files</Filter>
-    </ResourceCompile>
-  </ItemGroup>
-  <ItemGroup>
     <CopyFileToFolders Include="DB\tes3_ab_cell_x-y_data.db">
       <Filter>DB</Filter>
     </CopyFileToFolders>
@@ -68,5 +63,10 @@
     <CopyFileToFolders Include="Help\tes3_ab_help.txt">
       <Filter>Help</Filter>
     </CopyFileToFolders>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="tes3_ab_converter.rc">
+      <Filter>Resource Files</Filter>
+    </ResourceCompile>
   </ItemGroup>
 </Project>
