@@ -212,7 +212,7 @@ int getUserChoice(const std::string& prompt,
     }
 }
 
-// Function for handling conversion choises
+// Function for handling conversion choices
 int getUserConversionChoice(std::ofstream& logFile) {
     return getUserChoice(
         "\nConvert a plugin or master file:\n"
@@ -366,7 +366,6 @@ bool hasConversionTag(const ordered_json& inputData, const std::filesystem::path
     }
     return false;
 }
-
 
 // Function to check the dependency order of Parent Master files in the input .ESP|ESM data
 std::pair<bool, std::unordered_set<int>> checkDependencyOrder(const ordered_json& inputData, std::ofstream& logFile) {
@@ -2315,7 +2314,7 @@ bool addConversionTag(ordered_json& inputData, const std::string& convPrefix, st
     // Find the Header block in JSON
     auto headerIter = std::find_if(inputData.begin(), inputData.end(), [](const auto& item) {
         return item.contains("type") && item["type"] == "Header";
-        });
+    });
 
     if (headerIter != inputData.end() && headerIter->contains("description")) {
         // Get current description
@@ -2353,7 +2352,7 @@ bool createBackup(const std::filesystem::path& filePath, std::ofstream& logFile)
         // Safety check to prevent infinite loops
         if (counter >= maxBackups) {
             logMessage("ERROR - reached maximum backup count (" + std::to_string(maxBackups) +
-                ") for file: " + filePath.string(), logFile);
+                       ") for file: " + filePath.string(), logFile);
             return false;
         }
 
@@ -2365,7 +2364,7 @@ bool createBackup(const std::filesystem::path& filePath, std::ofstream& logFile)
     catch (const std::exception& e) {
         // Log any errors that occur during backup process
         logMessage("ERROR - failed to create backup: " + filePath.string() +
-            ": " + e.what(), logFile);
+                   ": " + e.what(), logFile);
         return false;
     }
 }
@@ -2575,7 +2574,7 @@ int main(int argc, char* argv[]) {
             // Check if any replacements were made
             if (replacementsFlag == 0) {
                 std::filesystem::remove(jsonImportPath);
-                logMessage("No replacements found for file: " + pluginImportPath.string() + " - conversion skipped\n", logFile);
+                logMessage("No replacements found for file: " + pluginImportPath.string() + " - conversion skipped...\n", logFile);
                 logMessage("Temporary .JSON file deleted: " + jsonImportPath.string() + "\n", logFile);
                 continue;
             }
