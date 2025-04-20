@@ -2,7 +2,7 @@ TES3 Anthology Bloodmoon Converter - Help
 =========================================
 
 Usage:
-  .\"TES3 Anthology Bloodmoon Converter.exe" [OPTIONS] [TARGETS]
+  .\tes3_ab_converter.exe [OPTIONS] [TARGETS]
 
 Options:
   -b, --batch      Enable batch mode (required when processing multiple files)
@@ -44,36 +44,36 @@ Shell Compatibility:
   PowerShell (Recommended):
     - Fully supports batch processing, recursive search, and wildcards
     - Example command:
-      & .\"TES3 Anthology Bloodmoon Converter.exe" -1 "C:\Morrowind\Data Files\mod.esp"
+      & .\tes3_ab_converter.exe -1 "C:\Morrowind\Data Files\mod.esp"
 
   CMD (Limited Support):
     - Does not support recursive file selection with wildcards
     - Example command:
-      .\"TES3 Anthology Bloodmoon Converter.exe" -1 "C:\Morrowind\Data Files\mod.esp"
+      .\tes3_ab_converter.exe -1 "C:\Morrowind\Data Files\mod.esp"
 
 Wildcard Support:
 
   PowerShell (Recommended for Bulk Processing):
     - Convert all .esp files recursively in the current folder:
-      & .\"TES3 Anthology Bloodmoon Converter.exe" -b (Get-ChildItem -Recurse -Filter "*.esp").FullName
+      & .\tes3_ab_converter.exe -b (Get-ChildItem -Recurse -Filter "*.esp").FullName
 
     - Convert all .esp files only in "C:\Mods\" (without subfolders):
-      & .\"TES3 Anthology Bloodmoon Converter.exe" -b (Get-ChildItem -Path "C:\Mods\" -Filter "*.esp").FullName
+      & .\tes3_ab_converter.exe -b (Get-ChildItem -Path "C:\Mods\" -Filter "*.esp").FullName
 
   CMD (Limited Wildcard Support, No Recursion):
     - Convert all .esp files in current folder:
-      for %f in ("*.esp") do "TES3 Anthology Bloodmoon Converter.exe" -b -2 "%~f"
+      for %f in ("*.esp") do tes3_ab_converter.exe -b -2 "%~f"
 
     - Convert all .esp files in target folder:
-      for %f in ("C:\Mods\*.esp") do "TES3 Anthology Bloodmoon Converter.exe" -b -2 "%~f"
+      for %f in ("C:\Mods\*.esp") do tes3_ab_converter.exe -b -2 "%~f"
 
 Example Commands:
 
   Convert an entire folder:
-    & .\"TES3 Anthology Bloodmoon Converter.exe" -b -1 "C:\Morrowind\Data Files\"
+    & .\tes3_ab_converter.exe -b -1 "C:\Morrowind\Data Files\"
 
   Convert multiple specific files:
-    & .\"TES3 Anthology Bloodmoon Converter.exe" -b -2 "D:\Mods\mod.esp;Mod-in-the-same-folder.esp"
+    & .\tes3_ab_converter.exe -b -2 "D:\Mods\mod.esp;Mod-in-the-same-folder.esp"
 
   Convert all files starting with ‘RR_’ in a folder:
-    & .\"TES3 Anthology Bloodmoon Converter.exe" -b (Get-ChildItem -Path "C:\Morrowind\Data Files\" -Recurse -Filter "RR_*.esp").FullName
+    & .\tes3_ab_converter.exe -b (Get-ChildItem -Path "C:\Morrowind\Data Files\" -Recurse -Filter "RR_*.esp").FullName
