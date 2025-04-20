@@ -24,7 +24,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="TES3 Anthology Bloodmoon Converter.cpp">
+    <ClCompile Include="tes3_ab_converter.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="database.cpp">
@@ -51,7 +51,7 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="TES3 Anthology Bloodmoon Converter.rc">
+    <ResourceCompile Include="tes3_ab_converter.rc">
       <Filter>Resource Files</Filter>
     </ResourceCompile>
   </ItemGroup>

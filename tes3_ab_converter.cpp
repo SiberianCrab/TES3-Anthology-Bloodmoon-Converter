@@ -104,7 +104,7 @@ ProgramOptions parseArguments(int argc, char* argv[]) {
             std::cout << "TES3 Anthology Bloodmoon Converter - Help\n"
                 << "=========================================\n\n"
                 << "Usage:\n"
-                << "  .\\\"TES3 Anthology Bloodmoon Converter.exe\" [OPTIONS] [TARGETS]\n\n"
+                << "  .\\tes3_ab_converter.exe [OPTIONS] [TARGETS]\n\n"
                 << "Options:\n"
                 << "  -b, --batch      Enable batch mode (required when processing multiple files)\n"
                 << "  -s, --silent     Suppress non-critical messages (faster conversion)\n"
@@ -308,8 +308,8 @@ bool hasConversionTag(const ordered_json& inputData, const std::filesystem::path
     if (headerIter != inputData.end() && headerIter->contains("description")) {
         std::string description = (*headerIter)["description"];
         // Check conversion markers in the description
-        if (description.find("Converted (Ru->En) by TES3 Ref_Ind Converter") != std::string::npos ||
-            description.find("Converted (En->Ru) by TES3 Ref_Ind Converter") != std::string::npos) {
+        if (description.find("Converted (BM->AB) by TES3 Anthology Bloodmoon Converter") != std::string::npos ||
+            description.find("Converted (AB->BM) by TES3 Anthology Bloodmoon Converter") != std::string::npos) {
 
             return true;
         }
