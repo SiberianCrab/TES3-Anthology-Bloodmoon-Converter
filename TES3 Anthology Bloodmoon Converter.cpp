@@ -72,13 +72,6 @@ void logErrorAndExit(const std::string& message, std::ofstream& logFile) {
     std::exit(EXIT_FAILURE);
 }
 
-// Function to check if file is a conversion output
-bool hasConversionPrefix(const std::filesystem::path& filePath) {
-    std::string filename = filePath.filename().string();
-    return filename.find("CONV_BMtoAB_") == 0 ||
-           filename.find("CONV_ABtoBM_") == 0;
-}
-
 // Function to parse arguments
 struct ProgramOptions {
     bool batchMode = false;
@@ -256,12 +249,12 @@ std::vector<std::filesystem::path> getInputFilePaths(const ProgramOptions& optio
                 if (std::filesystem::is_directory(path)) {
                     logMessage("Processing directory: " + path.string(), logFile);
                     for (const auto& entry : std::filesystem::recursive_directory_iterator(path)) {
-                        if (entry.is_regular_file() && isValidModFile(entry.path()) && !hasConversionPrefix(entry.path())) {
+                        if (entry.is_regular_file() && isValidModFile(entry.path())) {
                             result.push_back(entry.path());
                         }
                     }
                 }
-                else if (isValidModFile(path) && !hasConversionPrefix(path)) {
+                else if (isValidModFile(path)) {
                     result.push_back(path);
                 }
                 else if (!options.silentMode) {
@@ -353,6 +346,27 @@ std::vector<std::filesystem::path> getInputFilePaths(const ProgramOptions& optio
         logMessage("\nERROR - input file not found: check its directory, name, and extension!", logFile);
     }
 }
+
+// Function to check if file is a conversion output
+bool hasConversionTag(const ordered_json& inputData, const std::filesystem::path& filePath, std::ofstream& logFile) {
+    // Find the header section in the JSON data
+    auto headerIter = std::find_if(inputData.begin(), inputData.end(), [](const ordered_json& item) {
+        return item.contains("type") && item["type"] == "Header";
+        });
+
+    // Check if header contains a description field
+    if (headerIter != inputData.end() && headerIter->contains("description")) {
+        std::string description = (*headerIter)["description"];
+        // Check conversion markers in the description
+        if (description.find("Converted (Ru->En) by TES3 Ref_Ind Converter") != std::string::npos ||
+            description.find("Converted (En->Ru) by TES3 Ref_Ind Converter") != std::string::npos) {
+
+            return true;
+        }
+    }
+    return false;
+}
+
 
 // Function to check the dependency order of Parent Master files in the input .ESP|ESM data
 std::pair<bool, std::unordered_set<int>> checkDependencyOrder(const ordered_json& inputData, std::ofstream& logFile) {
@@ -2296,6 +2310,66 @@ void logUpdatedScriptIDs(const std::vector<std::string>& updatedScriptIDs, std::
     }
 }
 
+// Function to add conversion tag to the header description
+bool addConversionTag(ordered_json& inputData, const std::string& convPrefix, std::ofstream& logFile) {
+    // Find the Header block in JSON
+    auto headerIter = std::find_if(inputData.begin(), inputData.end(), [](const auto& item) {
+        return item.contains("type") && item["type"] == "Header";
+        });
+
+    if (headerIter != inputData.end() && headerIter->contains("description")) {
+        // Get current description
+        std::string currentDesc = (*headerIter)["description"];
+
+        // Add conversion tag
+        std::string conversionTag = "\r\n\r\nConverted (" + convPrefix + ") by TES3 Anthology Bloodmoon Converter";
+        if (currentDesc.find(conversionTag) == std::string::npos) {
+            (*headerIter)["description"] = currentDesc + conversionTag;
+            logMessage("\nAdding conversion tag to the file header...", logFile);
+        }
+        return true;
+    }
+
+    return false;
+}
+
+// Function to create backup with automatic numbering
+bool createBackup(const std::filesystem::path& filePath, std::ofstream& logFile) {
+    std::filesystem::path backupPath;
+    int counter = 0;
+    const int maxBackups = 1000;
+
+    try {
+        // First try simple .bac extension
+        backupPath = filePath;
+        backupPath += ".bac";
+
+        // If simple backup exists, find next available numbered version
+        while (std::filesystem::exists(backupPath) && counter < maxBackups) {
+            backupPath = filePath;
+            backupPath += std::format(".{:03d}.bac", counter++);
+        }
+
+        // Safety check to prevent infinite loops
+        if (counter >= maxBackups) {
+            logMessage("ERROR - reached maximum backup count (" + std::to_string(maxBackups) +
+                ") for file: " + filePath.string(), logFile);
+            return false;
+        }
+
+        // Perform the actual backup by renaming the file
+        std::filesystem::rename(filePath, backupPath);
+        logMessage("Original file backed up as: " + backupPath.string(), logFile);
+        return true;
+    }
+    catch (const std::exception& e) {
+        // Log any errors that occur during backup process
+        logMessage("ERROR - failed to create backup: " + filePath.string() +
+            ": " + e.what(), logFile);
+        return false;
+    }
+}
+
 // Function to save the modified JSON data to file
 bool saveJsonToFile(const std::filesystem::path& jsonImportPath, const ordered_json& inputData, std::ofstream& logFile) {
     std::ofstream outputFile(jsonImportPath);
@@ -2450,6 +2524,14 @@ int main(int argc, char* argv[]) {
 
             inputFile.close();
 
+            // Check if file was already converted
+            if (hasConversionTag(inputData, pluginImportPath, logFile)) {
+                std::filesystem::remove(jsonImportPath);
+                logMessage("File " + pluginImportPath.string() + " was already converted - conversion skipped...", logFile);
+                logMessage("Temporary .JSON file deleted: " + jsonImportPath.string() + "\n", logFile);
+                continue;
+            }
+
             // Check the dependency order
             auto [isValid, validMasters] = checkDependencyOrder(inputData, logFile);
             if (!isValid) {
@@ -2502,10 +2584,16 @@ int main(int argc, char* argv[]) {
             logUpdatedScriptIDs(updatedScriptIDs, logFile);
 
             // Define conversion prefix
-            std::string convPrefix = (options.conversionType == 1) ? "BMtoAB" : "ABtoBM";
+            std::string convPrefix = (options.conversionType == 1) ? "BM->AB" : "AB->BM";
+
+            // Add conversion tag to header
+            if (!addConversionTag(inputData, convPrefix, logFile)) {
+                logMessage("ERROR - could not find or modify header description", logFile);
+                continue;
+            }
 
             // Save the modified data to .JSON file
-            auto newJsonName = std::format("CONV_{}_{}{}", convPrefix, pluginImportPath.stem().string(), ".json");
+            auto newJsonName = std::format("TEMP_{}{}", pluginImportPath.stem().string(), ".json");
             std::filesystem::path jsonExportPath = pluginImportPath.parent_path() / newJsonName;
 
             if (!saveJsonToFile(jsonExportPath, inputData, logFile)) {
@@ -2513,12 +2601,16 @@ int main(int argc, char* argv[]) {
                 continue;
             }
 
-            // Convert the .JSON file back to .ESP|ESM
-            auto pluginExportName = std::format("CONV_{}_{}{}", convPrefix, pluginImportPath.stem().string(), pluginImportPath.extension().string());
-            std::filesystem::path pluginExportPath = pluginImportPath.parent_path() / pluginExportName;
+            // Create backup before modifying original file
+            if (!createBackup(pluginImportPath, logFile)) {
+                std::filesystem::remove(jsonImportPath);
+                logMessage("Temporary .JSON file deleted: " + jsonImportPath.string(), logFile);
+                continue;
+            }
 
-            if (!convertJsonToEsp(jsonExportPath, pluginExportPath, logFile)) {
-                logMessage("ERROR - failed to convert .JSON back to .ESP|ESM: " + pluginExportPath.string(), logFile);
+            // Save converted file with original name
+            if (!convertJsonToEsp(jsonExportPath, pluginImportPath, logFile)) {
+                logMessage("ERROR - failed to convert .JSON back to .ESP|ESM: " + pluginImportPath.string(), logFile);
                 continue;
             }
 
