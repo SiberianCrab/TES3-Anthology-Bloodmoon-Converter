@@ -142,17 +142,19 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="database.cpp" />
-    <ClCompile Include="tes3_ab_converter.cpp" />
+    <ClCompile Include="Source Files\database.cpp" />
+    <ClCompile Include="Source Files\logger.cpp" />
+    <ClCompile Include="Source Files\tes3_ab_converter.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <Image Include="Icon.ico" />
+    <Image Include="Resource Files\Icon.ico" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Headers\database.h" />
     <ClInclude Include="Headers\json.hpp" />
+    <ClInclude Include="Headers\logger.h" />
     <ClInclude Include="Headers\sqlite3.h" />
-    <ClInclude Include="resource.h" />
+    <ClInclude Include="Resource Files\resource.h" />
   </ItemGroup>
   <ItemGroup>
     <CopyFileToFolders Include="Libraries\sqlite3.dll">
@@ -178,7 +180,7 @@
     </CopyFileToFolders>
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="tes3_ab_converter.rc" />
+    <ResourceCompile Include="Resource Files\tes3_ab_converter.rc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

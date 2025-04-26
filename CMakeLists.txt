@@ -4,6 +4,14 @@ project(TES3_Anthology_Bloodmoon_Converter)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Paths to Directories
+set(SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Source Files")
+set(HEADER_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Headers")
+set(RESOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Resource Files")
+set(LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Libraries")
+set(DB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/DB")
+set(HELP_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Help")
+
 # MSVC-specific settings
 if(MSVC)
     add_compile_definitions(
@@ -20,18 +28,22 @@ if(WIN32)
     
     # Resource files
     set(RESOURCE_FILES
-        "tes3_ab_converter.rc"
-        "resource.h"
-        "Icon.ico"
+        "${RESOURCE_DIR}/tes3_ab_converter.rc"
+        "${RESOURCE_DIR}/resource.h"
+        "${RESOURCE_DIR}/Icon.ico"
     )
     
     # Parse version info from RC file
-    if(EXISTS "tes3_ab_converter.rc")
-        file(STRINGS "tes3_ab_converter.rc" RC_VERSION_LINES REGEX "FILEVERSION|PRODUCTVERSION")
-        if(RC_VERSION_LINES)
-        	# Extract version
-            string(REGEX MATCH "FILEVERSION ([0-9]+,[0-9]+,[0-9]+,[0-9]+)" _ ${RC_VERSION_LINES})
-            set(VERSION_STRING "${CMAKE_MATCH_1}")
+    if(EXISTS "${RESOURCE_DIR}/tes3_ab_converter.rc")
+        file(STRINGS "${RESOURCE_DIR}/tes3_ab_converter.rc" RC_VERSION_LINES REGEX "FILEVERSION|PRODUCTVERSION")
+        foreach(line IN LISTS RC_VERSION_LINES)
+            if(line MATCHES "FILEVERSION ([0-9]+,[0-9]+,[0-9]+,[0-9]+)")
+                set(VERSION_STRING "${CMAKE_MATCH_1}")
+                break()
+            endif()
+        endforeach()
+
+        if(DEFINED VERSION_STRING)
             string(REPLACE "," "." VERSION_DOTTED "${VERSION_STRING}")
             message(STATUS "Detected version from RC file: ${VERSION_DOTTED}")
             
@@ -47,16 +59,18 @@ endif()
 
 # Source files
 set(SOURCES
-    "tes3_ab_converter.cpp"
-    "database.cpp"
+    "${SOURCE_DIR}/tes3_ab_converter.cpp"
+    "${SOURCE_DIR}/database.cpp"
+    "${SOURCE_DIR}/logger.cpp"
     ${RESOURCE_FILES}
 )
 
 # Headers
 set(HEADERS
-    "Headers/database.h"
-    "Headers/sqlite3.h"
-    "Headers/json.hpp"
+    "${HEADER_DIR}/database.h"
+    "${HEADER_DIR}/json.hpp"
+	"${HEADER_DIR}/logger.h"
+	"${HEADER_DIR}/sqlite3.h"
 )
 
 # Create executable
@@ -65,9 +79,9 @@ add_executable(tes3_ab_converter ${SOURCES} ${HEADERS})
 # Windows-specific icon and version info properties
 if(WIN32)
     # Set application icon
-    if(EXISTS "Icon.ico")
+    if(EXISTS "${RESOURCE_DIR}/Icon.ico")
         set_target_properties(tes3_ab_converter PROPERTIES
-            RC_ICONS "Icon.ico"
+            RC_ICONS "${RESOURCE_DIR}/Icon.ico"
         )
     endif()
     
@@ -83,13 +97,13 @@ endif()
 # Include directories
 target_include_directories(tes3_ab_converter PRIVATE 
     ${CMAKE_CURRENT_SOURCE_DIR}
-    ${CMAKE_CURRENT_SOURCE_DIR}/Headers
+    ${HEADER_DIR}
 )
 
 # SQLite3 linking
 if(WIN32)
     find_library(SQLITE3_LIBRARY sqlite3 
-        PATHS "${CMAKE_CURRENT_SOURCE_DIR}/Libraries"
+        PATHS "${LIB_DIR}"
         NO_DEFAULT_PATH
         REQUIRED
     )
@@ -97,14 +111,15 @@ if(WIN32)
 else()
     find_package(SQLite3 REQUIRED)
     target_link_libraries(tes3_ab_converter PRIVATE SQLite::SQLite3)
+    target_include_directories(tes3_ab_converter PRIVATE ${SQLite3_INCLUDE_DIRS})
 endif()
 
 # Copy required files to output directory after build
 set(DATA_FILES
-    "${CMAKE_CURRENT_SOURCE_DIR}/Libraries/sqlite3.dll"
-    "${CMAKE_CURRENT_SOURCE_DIR}/DB/tes3_ab_cell_x-y_data.db"
-    "${CMAKE_CURRENT_SOURCE_DIR}/DB/tes3_ab_custom_cell_x-y_data.txt"
-    "${CMAKE_CURRENT_SOURCE_DIR}/Help/tes3_ab_help.txt"
+    "${LIB_DIR}/sqlite3.dll"
+    "${DB_DIR}/tes3_ab_cell_x-y_data.db"
+    "${DB_DIR}/tes3_ab_custom_cell_x-y_data.txt"
+    "${HELP_DIR}/tes3_ab_help.txt"
 )
 
 foreach(file ${DATA_FILES})
@@ -131,6 +146,3 @@ if(MSVC)
         BYPRODUCTS "$<TARGET_PDB_FILE:tes3_ab_converter>"
     )
 endif()
-
-# Additional copy target
-add_custom_target(copy_files ALL DEPENDS tes3_ab_converter)
