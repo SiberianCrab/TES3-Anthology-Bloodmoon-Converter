@@ -58,6 +58,7 @@ struct ProgramOptions {
     int conversionType = 0;
 };
 
+// Function to parse arguments
 ProgramOptions parseArguments(int argc, char* argv[]) {
     ProgramOptions options;
 
@@ -359,7 +360,7 @@ void loadCustomGridCoordinates(const std::string& filePath, std::unordered_set<s
         return;
     }
 
-    logMessage("Loading custom grid coordinates from: " + filePath, logFile);
+    bool hasAnyParsableLines = false;
 
     std::string line;
     while (std::getline(file, line)) {
@@ -367,26 +368,27 @@ void loadCustomGridCoordinates(const std::string& filePath, std::unordered_set<s
         line.erase(0, line.find_first_not_of(" \t\r\n"));
         line.erase(line.find_last_not_of(" \t\r\n") + 1);
 
-        // Skip empty lines
-        if (line.empty()) {
+        // Skip empty lines and comments
+        if (line.empty() || line.find("//") == 0) {
             continue;
         }
 
-        // Skip lines that start with "//" (comments)
-        if (line.find("//") == 0) {
-            continue;
+        // Search for first parsable line, log the header
+        if (!hasAnyParsableLines) {
+            logMessage("Loading custom grid coordinates:", logFile);
+            hasAnyParsableLines = true;
         }
 
         std::istringstream lineStream(line);
         int x, y;
+        char comma;
 
-        char comma; // To handle the comma separator
         if (lineStream >> x >> comma >> y && comma == ',') {
             customCoordinates.emplace(x, y);
-            logMessage("Loaded custom coordinate: (" + std::to_string(x) + ", " + std::to_string(y) + ")", logFile);
+            logMessage("- " + std::to_string(x) + "," + std::to_string(y), logFile);
         }
         else {
-            logMessage("WARNING - invalid format in custom grid coordinates file: " + line, logFile);
+            logMessage("WARNING - invalid coordinate format: " + line, logFile);
         }
     }
 
@@ -2333,7 +2335,7 @@ int main(int argc, char* argv[]) {
               << PROGRAM_AUTHOR << "\n\n" << PROGRAM_TESTER << "\n\n";
 
     // Log file initialisation
-    std::ofstream logFile("tes3_ri.log", std::ios::app);
+    std::ofstream logFile("tes3_ab.log", std::ios::app);
     if (!logFile.is_open()) {
         std::cout << "ERROR - failed to open log file!\n\n";
 
