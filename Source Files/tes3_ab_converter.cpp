@@ -39,24 +39,33 @@ const std::string TES3CONV_COMMAND = "tes3conv.exe";
 const std::string TES3CONV_COMMAND = "./tes3conv";
 #endif
 
-// Define the GridOffset structure
-struct GridOffset {
-    int offsetX;
-    int offsetY;
-};
-
-// Function to determine offsets based on conversion choice
-GridOffset getGridOffset(int conversionType) {
-    return (conversionType == 1) ? GridOffset{ 7, 6 } : GridOffset{ -7, -6 };
-}
-
-// Function to parse arguments
+// Structure for storing program configuration options
 struct ProgramOptions {
     bool batchMode = false;
     bool silentMode = false;
     std::vector<std::filesystem::path> inputFiles;
     int conversionType = 0;
 };
+
+// Custom hash function
+struct PairHash {
+    std::size_t operator()(const std::pair<int, int>& p) const {
+        std::size_t hash1 = std::hash<int>{}(p.first);
+        std::size_t hash2 = std::hash<int>{}(p.second);
+        return hash1 ^ (hash2 + 0x9e3779b9 + (hash1 << 6) + (hash1 >> 2));
+    }
+};
+
+// Structure for storing GridOffset
+struct GridOffset {
+    int offsetX;
+    int offsetY;
+};
+
+// Function to determine GridOffsets based on conversion choice
+GridOffset getGridOffset(int conversionType) {
+    return (conversionType == 1) ? GridOffset{ 7, 6 } : GridOffset{ -7, -6 };
+}
 
 // Function to parse arguments
 ProgramOptions parseArguments(int argc, char* argv[]) {
@@ -342,15 +351,6 @@ std::pair<bool, std::unordered_set<int>> checkDependencyOrder(const ordered_json
 
     return { false, {} };
 }
-
-// Custom hash function
-struct PairHash {
-    std::size_t operator()(const std::pair<int, int>& p) const {
-        std::size_t hash1 = std::hash<int>{}(p.first);
-        std::size_t hash2 = std::hash<int>{}(p.second);
-        return hash1 ^ (hash2 + 0x9e3779b9 + (hash1 << 6) + (hash1 >> 2));
-    }
-};
 
 // Function to load custom grid coordinates
 void loadCustomGridCoordinates(const std::string& filePath, std::unordered_set<std::pair<int, int>, PairHash>& customCoordinates, std::ofstream& logFile) {
