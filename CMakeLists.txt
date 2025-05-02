@@ -60,6 +60,7 @@ endif()
 # Source files
 set(SOURCES
     "${SOURCE_DIR}/tes3_ab_converter.cpp"
+	"${SOURCE_DIR}/arguments.cpp"
     "${SOURCE_DIR}/database.cpp"
     "${SOURCE_DIR}/logger.cpp"
     ${RESOURCE_FILES}
@@ -67,6 +68,8 @@ set(SOURCES
 
 # Headers
 set(HEADERS
+    "${HEADER_DIR}/arguments.h"
+    "${HEADER_DIR}/constants.h"
     "${HEADER_DIR}/database.h"
     "${HEADER_DIR}/json.hpp"
 	"${HEADER_DIR}/logger.h"

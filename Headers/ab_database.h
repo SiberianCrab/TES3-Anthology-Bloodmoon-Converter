@@ -1,8 +1,9 @@
 #pragma once
-#include <sqlite3.h>
 #include <memory>
 #include <stdexcept>
 #include <string>
+
+#include <sqlite3.h>
 
 class Database {
 public:

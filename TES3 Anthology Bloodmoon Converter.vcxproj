@@ -142,17 +142,24 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="Source Files\database.cpp" />
-    <ClCompile Include="Source Files\logger.cpp" />
+    <ClCompile Include="Source Files\ab_coord_processor.cpp" />
+    <ClCompile Include="Source Files\ab_database.cpp" />
+    <ClCompile Include="Source Files\ab_data_processor.cpp" />
+    <ClCompile Include="Source Files\ab_file_processor.cpp" />
+    <ClCompile Include="Source Files\ab_logger.cpp" />
+    <ClCompile Include="Source Files\ab_options.cpp" />
+    <ClCompile Include="Source Files\ab_user_interaction.cpp" />
     <ClCompile Include="Source Files\tes3_ab_converter.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <Image Include="Resource Files\Icon.ico" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="Headers\database.h" />
+    <ClInclude Include="Headers\ab_coord_processor.h" />
+    <ClInclude Include="Headers\ab_database.h" />
+    <ClInclude Include="Headers\ab_data_processor.h" />
+    <ClInclude Include="Headers\ab_file_processor.h" />
+    <ClInclude Include="Headers\ab_logger.h" />
+    <ClInclude Include="Headers\ab_options.h" />
+    <ClInclude Include="Headers\ab_user_interaction.h" />
     <ClInclude Include="Headers\json.hpp" />
-    <ClInclude Include="Headers\logger.h" />
     <ClInclude Include="Headers\sqlite3.h" />
     <ClInclude Include="Resource Files\resource.h" />
   </ItemGroup>
@@ -181,6 +188,9 @@
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Resource Files\tes3_ab_converter.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="Resource Files\Icon.ico" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
