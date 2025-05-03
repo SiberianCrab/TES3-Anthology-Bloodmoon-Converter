@@ -60,19 +60,26 @@ endif()
 # Source files
 set(SOURCES
     "${SOURCE_DIR}/tes3_ab_converter.cpp"
-	"${SOURCE_DIR}/arguments.cpp"
-    "${SOURCE_DIR}/database.cpp"
-    "${SOURCE_DIR}/logger.cpp"
+    "${SOURCE_DIR}/ab_coord_processor.cpp"
+    "${SOURCE_DIR}/ab_data_processor.cpp"
+    "${SOURCE_DIR}/ab_database.cpp"
+    "${SOURCE_DIR}/ab_file_processor.cpp"
+    "${SOURCE_DIR}/ab_logger.cpp"
+    "${SOURCE_DIR}/ab_options.cpp"
+    "${SOURCE_DIR}/ab_user_interaction.cpp"
     ${RESOURCE_FILES}
 )
 
 # Headers
 set(HEADERS
-    "${HEADER_DIR}/arguments.h"
-    "${HEADER_DIR}/constants.h"
-    "${HEADER_DIR}/database.h"
+    "${HEADER_DIR}/ab_coord_processor.h"
+    "${HEADER_DIR}/ab_data_processor.h"
+    "${HEADER_DIR}/ab_database.h"
+    "${HEADER_DIR}/ab_file_processor.h"
+    "${HEADER_DIR}/ab_logger.h"
+    "${HEADER_DIR}/ab_options.h"
+    "${HEADER_DIR}/ab_user_interaction.h"
     "${HEADER_DIR}/json.hpp"
-	"${HEADER_DIR}/logger.h"
 	"${HEADER_DIR}/sqlite3.h"
 )
 
