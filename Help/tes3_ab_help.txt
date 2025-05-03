@@ -1,29 +1,49 @@
+=========================================
 TES3 Anthology Bloodmoon Converter - Help
 =========================================
 
 Usage:
-  .\tes3_ab_converter.exe [OPTIONS] [TARGETS]
+  Windows 
+    .\tes3_ab_converter.exe [OPTIONS] "[TARGETS]"
+  
+  Linux
+    ./tes3_ab_converter [OPTIONS] "[TARGETS]"
 
 Options:
   -b, --batch      Enable batch mode (required when processing multiple files)
   -s, --silent     Suppress non-critical messages (faster conversion)
   -1, --bm-to-ab   Convert Bloodmoon -> Anthology Bloodmoon
   -2, --ab-to-bm   Convert Anthology Bloodmoon -> Bloodmoon
-  -h, --help       Show this help message
+  -h, --help       Show help message
 
 Target Formats:
 
   Single File (works without batch mode):
-    mod-in-the-same-folder.esp
-    C:\Morrowind\Data Files\mod.esm
+    Windows 
+        mod-in-the-same-folder.esp
+        C:\Morrowind\Data Files\mod.esm
+
+    Linux
+        mod-in-the-same-folder.esp
+        /home/user/morrowind/Data Files/mod.esm
 
   Multiple Files (requires -b batch mode):
-    file1.esp;file2.esm;file 3.esp
-    D:\Mods\mod.esp;C:\Morrowind\Data Files\Master mod.esm;Mod-in-the-same-folder.esp
+    Windows 
+        file1.esp;file2.esm;file 3.esp
+        :\Mods\mod.esp;C:\Morrowind\Data Files\Master mod.esm;Mod-in-the-same-folder.esp
+
+    Linux
+        file1.esp;file2.esm;file 3.esp
+        /mnt/data/mods/file1.esp;/home/user/morrowind/Data Files/Master mod.esm;mod-in-the-same-folder.esp
 
   Entire Directory (batch mode, recursive processing):
-    C:\Morrowind\Data Files\
-    .\Data\  (relative path)
+    Windows 
+        C:\Morrowind\Data Files\
+        .\Data\  (relative path)
+
+    Linux
+        /home/user/morrowind/Data Files/
+        ./Data/  (relative path)
 
 Important Notes:
 
@@ -33,7 +53,7 @@ Important Notes:
 
   Not Supported:
     - Paths containing non-ASCII characters (e.g., Cyrillic, Chinese, special symbols)
-    - Wildcards (*, ?) in CMD (works better in PowerShell)
+    - Wildcards (*, ?) in CMD
 
   Solution for Non-ASCII Paths:
     If your files are in a folder with non-ASCII characters (e.g., C:\Èãðû\Morrowind\),
@@ -41,39 +61,57 @@ Important Notes:
 
 Shell Compatibility:
 
-  PowerShell (Recommended):
+  PowerShell (Recommended on Windows):
     - Fully supports batch processing, recursive search, and wildcards
-    - Example command:
-      & .\tes3_ab_converter.exe -1 "C:\Morrowind\Data Files\mod.esp"
 
   CMD (Limited Support):
     - Does not support recursive file selection with wildcards
-    - Example command:
-      .\tes3_ab_converter.exe -1 "C:\Morrowind\Data Files\mod.esp"
+
+  Bash/Zsh (on Linux):
+    - Fully supports batch processing and wildcard expansion
 
 Wildcard Support:
 
-  PowerShell (Recommended for Bulk Processing):
-    - Convert all .esp files recursively in the current folder:
-      & .\tes3_ab_converter.exe -b (Get-ChildItem -Recurse -Filter "*.esp").FullName
+  PowerShell (Recommended for Windows):
+    - Convert all .esp files recursively in current folder:
+      & .\tes3_ab_converter.exe -b (Get-ChildItem -Recurse -Include "*.esp").FullName
 
-    - Convert all .esp files only in "C:\Mods\" (without subfolders):
-      & .\tes3_ab_converter.exe -b (Get-ChildItem -Path "C:\Mods\" -Filter "*.esp").FullName
+    - Convert all .esm files in specific folder (without subfolders):
+      & .\tes3_ab_converter.exe -b (Get-ChildItem -Path "C:\Mods\" -Include "*.esm").FullName
+
+    - Convert all .esm files in specific folder recursively:
+      & .\tes3_ab_converter.exe -b (Get-ChildItem -Path "C:\Mods\" -Recurse -Include "*.esm" -File).FullName
 
   CMD (Limited Wildcard Support, No Recursion):
     - Convert all .esp files in current folder:
       for %f in ("*.esp") do tes3_ab_converter.exe -b -2 "%~f"
 
-    - Convert all .esp files in target folder:
-      for %f in ("C:\Mods\*.esp") do tes3_ab_converter.exe -b -2 "%~f"
+    - Convert all .esm files in specific folder (without subfolders):
+      for %f in ("C:\Mods\*.esm") do tes3_ab_converter.exe -b -2 "%~f"
+
+  Bash/Zsh (Full Wildcard Support on Linux):
+    - Convert all .esp files recursively in current folder:
+      find . -type f -iname "*.esp" -exec ./tes3_ab_converter -b -2 {} \;
+
+    - Convert all .esm files in specific folder (without subfolders):
+      find /path/to/mods -maxdepth 1 -type f -iname "*.esm" -exec ./tes3_ab_converter -b -2 {} \;
+
+    - Convert all .esm files in specific folder recursively:
+      find /path/to/mods -type f -iname "*.esm" -exec ./tes3_ab_converter -b -2 {} \;
 
 Example Commands:
 
   Convert an entire folder:
     & .\tes3_ab_converter.exe -b -1 "C:\Morrowind\Data Files\"
 
+    ./tes3_ab_converter -b -1 "/home/user/morrowind/Data Files/"
+
   Convert multiple specific files:
     & .\tes3_ab_converter.exe -b -2 "D:\Mods\mod.esp;Mod-in-the-same-folder.esp"
 
+    ./tes3_ab_converter -b -2 "/mnt/data/mods/mod.esp;./Mod-in-the-same-folder.esp"
+
   Convert all files starting with ‘RR_’ in a folder:
-    & .\tes3_ab_converter.exe -b (Get-ChildItem -Path "C:\Morrowind\Data Files\" -Recurse -Filter "RR_*.esp").FullName
+    & .\tes3_ab_converter.exe -b (Get-ChildItem -Path "C:\Morrowind\Data Files\" -Recurse -Include "RR_*.esp").FullName
+
+    find "/home/user/morrowind/Data Files/" -type f -iname "RR_*.esp" -exec ./tes3_ab_converter -b -1 "{}" \;
