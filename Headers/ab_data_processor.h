@@ -3,6 +3,8 @@
 #include <unordered_set>
 #include <vector>
 #include <regex>
+#include <string>
+#include <utility>
 
 #include "json.hpp"
 
