@@ -32,9 +32,9 @@ ProgramOptions parseArguments(int argc, char* argv[]) {
                       << "=========================================\n\n"
                       << "Usage:\n"
             #ifdef _WIN32
-                      << "  .\\tes3_ri_converter.exe [OPTIONS] \"[TARGETS]\"\n\n"
+                      << "  .\\tes3_ab_converter.exe [OPTIONS] \"[TARGETS]\"\n\n"
             #else
-                      << "  ./tes3_ri_converter [OPTIONS] \"[TARGETS]\"\n\n"
+                      << "  ./tes3_ab_converter [OPTIONS] \"[TARGETS]\"\n\n"
             #endif
                       << "Options:\n"
                       << "  -b, --batch      Enable batch mode (required when processing multiple files)\n"
@@ -65,7 +65,7 @@ ProgramOptions parseArguments(int argc, char* argv[]) {
                       << "    /home/user/morrowind/Data Files/\n"
                       << "    ./Data/  (relative path)\n\n\n"
             #endif
-                      << "For more details see: tes3_ri_help.txt\n\n";
+                      << "For more details see: tes3_ab_help.txt\n\n";
 
             // Wait for user input before exiting (Windows)
         #ifndef __linux__
