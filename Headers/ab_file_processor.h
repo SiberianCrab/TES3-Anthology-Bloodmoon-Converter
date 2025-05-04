@@ -21,4 +21,4 @@ bool createBackup(const std::filesystem::path& filePath, const ProgramOptions& o
 bool saveJsonToFile(const std::filesystem::path& jsonImportPath, const ordered_json& inputData, const ProgramOptions& options, std::ofstream& logFile);
 
 // Function to convert the .JSON file to .ESP|ESM
-bool convertJsonToEsp(const std::filesystem::path& jsonImportPath, const std::filesystem::path& espFilePath, std::ofstream& logFile);
+bool convertJsonToEsp(const std::filesystem::path& jsonImportPath, const std::filesystem::path& espFilePath, const ProgramOptions& options, std::ofstream& logFile);

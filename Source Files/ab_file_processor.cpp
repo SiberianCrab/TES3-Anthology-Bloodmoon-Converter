@@ -146,7 +146,7 @@ bool saveJsonToFile(const std::filesystem::path& jsonImportPath, const ordered_j
 }
 
 // Function to convert the .JSON file to .ESP|ESM
-bool convertJsonToEsp(const std::filesystem::path& jsonImportPath, const std::filesystem::path& espFilePath, std::ofstream& logFile) {
+bool convertJsonToEsp(const std::filesystem::path& jsonImportPath, const std::filesystem::path& espFilePath, const ProgramOptions& options, std::ofstream& logFile) {
     std::ostringstream command;
     command << TES3CONV_COMMAND << " "
             << std::quoted(jsonImportPath.string()) << " "
@@ -157,5 +157,10 @@ bool convertJsonToEsp(const std::filesystem::path& jsonImportPath, const std::fi
     }
 
     logMessage("Conversion to .ESP|ESM successful: " + espFilePath.string(), logFile);
+
+    if (options.silentMode) {
+        logMessage("", logFile);
+    }
+
     return true;
 }

@@ -117,8 +117,8 @@ int main(int argc, char* argv[]) {
             // Convert the input file to .JSON
             std::ostringstream convCmd;
             convCmd << TES3CONV_COMMAND << " "
-                << std::quoted(pluginImportPath.string()) << " "
-                << std::quoted(jsonImportPath.string());
+                    << std::quoted(pluginImportPath.string()) << " "
+                    << std::quoted(jsonImportPath.string());
 
             if (std::system(convCmd.str().c_str()) != 0) {
                 logMessage("ERROR - converting to .JSON failed for file: " + pluginImportPath.string() + "\n", logFile);
@@ -259,7 +259,7 @@ int main(int argc, char* argv[]) {
             }
 
             // Save converted file with original name
-            if (!convertJsonToEsp(jsonExportPath, pluginImportPath, logFile)) {
+            if (!convertJsonToEsp(jsonExportPath, pluginImportPath, options, logFile)) {
                 logMessage("ERROR - failed to convert .JSON back to .ESP|ESM: " + pluginImportPath.string() + "\n", logFile);
                 continue;
             }
