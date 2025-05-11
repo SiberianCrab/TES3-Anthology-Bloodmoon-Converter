@@ -1,8 +1,10 @@
 # TES3-Anthology-Bloodmoon-Converter
 
 A simple command-line tool that lets you move Bloodmoon .esp/.esm mods from vanilla Solstheim location to it's Anthology map position - 7 cells east, 6 cells north.
- 
- Requires the latest version of tes3conv.exe from Greatness7 (https://github.com/Greatness7/tes3conv) to run.
+
+Requires the latest version of `tes3conv.exe` from Greatness7: [https://github.com/Greatness7/tes3conv](https://github.com/Greatness7/tes3conv)
+
+---
  
 Program capabilities
 
