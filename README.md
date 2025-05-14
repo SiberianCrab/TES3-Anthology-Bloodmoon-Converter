@@ -8,18 +8,18 @@ Requires the latest version of `tes3conv.exe` from Greatness7: [https://github.c
  
 Program capabilities
 
-I. Processing grid X|Y coordinates:
+I. Processing grid X | Y coordinates:
 - Updates grid coordinates for Cell, Landscape, and PathGrid records.
 
-II. Processing translation X|Y coordinates:
+II. Processing translation X | Y coordinates:
 - Updates coordinates for objects located within relocatable Cells.
 - Updates destination coordinates for Interior cell doors, leading to relocatable Cells.
 - Updates destination coordinates for NPC's Travel services, leading to relocatable Cells.
 
-III. Processing translation X|Y coordinates in game Scripts:
+III. Processing translation X | Y coordinates in game Scripts:
 - Updates coordinates in script commands: AiEscort, AiFollow, AiTravel, PlaceItem, Position, AiEscortCell, AiFollowCell, AiTravelCell, PlaceItemCell, PositionCell.
 
-IV. Processing translation X|Y coordinates in dialogue-linked scripts (dialogue window 'Result' section):
+IV. Processing translation X | Y coordinates in dialogue-linked scripts (dialogue window 'Result' section):
 - Updates the same set of commands as standard scripts: AiEscort, AiFollow, AiTravel, PlaceItem, Position, AiEscortCell, AiFollowCell, AiTravelCell, PlaceItemCell, PositionCell.
 
 V. Supports translation and grid coordinates updates for a user-defined Cells list (tes3_ab_custom_cell_x-y_data.txt).
