@@ -6,7 +6,7 @@ Requires the latest version of `tes3conv.exe` from Greatness7: [https://github.c
 
 ---
  
-Program capabilities
+## Program capabilities
 
 I. Processing grid X | Y coordinates:
 - Updates grid coordinates for Cell, Landscape, and PathGrid records.
