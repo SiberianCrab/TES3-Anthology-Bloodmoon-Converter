@@ -17,8 +17,8 @@ bool hasConversionTag(const ordered_json& inputData, const std::filesystem::path
     if (headerIter != inputData.end() && headerIter->contains("description")) {
         std::string description = (*headerIter)["description"];
         // Check conversion markers in the description
-        if (description.find("Converted (RU->EN) by TES3 Ref_Ind Converter") != std::string::npos ||
-            description.find("Converted (EN->RU) by TES3 Ref_Ind Converter") != std::string::npos) {
+        if (description.find("Converted (BM->AB) by TES3 Anthology Bloodmoon Converter") != std::string::npos ||
+            description.find("Converted (AB->BM) by TES3 Anthology Bloodmoon Converter") != std::string::npos) {
 
             return true;
         }
@@ -83,7 +83,7 @@ bool addConversionTag(ordered_json& inputData, const std::string& convPrefix, co
         std::string currentDesc = (*headerIter)["description"];
 
         // Add conversion tag
-        std::string conversionTag = "\r\n\r\nConverted (" + convPrefix + ") by TES3 Ref_Ind Converter";
+        std::string conversionTag = "\r\n\r\nConverted (" + convPrefix + ") by TES3 Anthology Bloodmoon Converter";
         if (currentDesc.find(conversionTag) == std::string::npos) {
             (*headerIter)["description"] = currentDesc + conversionTag;
             if (!options.silentMode) {

@@ -7,7 +7,7 @@
 
 // Define program metadata constants
 const std::string PROGRAM_NAME = "TES3 Anthology Bloodmoon Converter";
-const std::string PROGRAM_VERSION = "V 1.3.0";
+const std::string PROGRAM_VERSION = "V 1.3.1";
 const std::string PROGRAM_AUTHOR = "by SiberianCrab";
 const std::string PROGRAM_TESTER = "Beta testing by ShulShagana";
 
